@@ -11,9 +11,9 @@ import dispy
 import dispy.httpd
 
 #src/app => src
-src_dir = os.path.dirname( os.path.realpath(__file__))
+srcDir = os.path.dirname( os.path.realpath(__file__))
 
-#sys.path.insert(0, src_dir + "/transform")
+#sys.path.insert(0, srcDir + "/transform")
 
 from Grayscaler import Grayscaler
 
@@ -45,7 +45,7 @@ def cluster_status_cb(status, node, job):
 
         #result is a pillow image
 
-        job.result.save( ("%s/../output/output%d.jpg" % (src_dir, job.id)), "JPEG")
+        job.result.save( ("%s/../output/output%d.jpg" % (srcDir, job.id)), "JPEG")
 
         #TODO: signal callback work is finished
 
@@ -61,6 +61,8 @@ def cluster_status_cb(status, node, job):
 
 def main(args):
 
+#    from Grayscaler import Grayscaler
+
     if(len(args) < 2):
         print("Need at least 1 file")
         exit(1);
@@ -73,8 +75,11 @@ def main(args):
 
     jobs = []
 
+    #works
+    cluster_dependencies = [ ("%s/Grayscaler.py" % srcDir)  ]
+    ###################
 
-    cluster_dependencies = [Grayscaler, ("%s/Grayscaler.py" % src_dir) ]
+    #cluster_dependencies = [ Grayscaler ]
 
     print("launching cluster with dependencies %s" % cluster_dependencies)
 

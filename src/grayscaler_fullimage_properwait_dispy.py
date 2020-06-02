@@ -132,8 +132,6 @@ dispy.MsgTimeout = 1200
 
 def main(args):
 
-    #from grayscaler import Grayscaler
-
 
     if(len(args) < 2):
         print("Need at least 1 file")
@@ -159,7 +157,7 @@ def main(args):
 
     #sleep just in case a host is slow to respond
     print("Sleeping, buying time for sluggish nodes to report...")
-    time.sleep(5)
+    time.sleep(3)
 
 
     #expand image files into a list of jobs

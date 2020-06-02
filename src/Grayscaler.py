@@ -5,6 +5,9 @@ from PIL import Image
 class Grayscaler(object):
     def __init__(self, sourceImage):
 
+        #from Grayscaler import Grayscaler
+
+
         logging.basicConfig(level=logging.DEBUG)
         self.logger = logging.getLogger(__name__)
 
@@ -28,6 +31,9 @@ class Grayscaler(object):
         pass
 
     def grayscalePixel(self, pix):
+
+        #from Grayscaler import Grayscaler
+
         #(r,g,b)
 
         # rPix = 0.299 * pix[0]
@@ -54,7 +60,9 @@ class Grayscaler(object):
     #     self.outputDir = dir
 
     def grayscaleImage(self):
+        #from Grayscaler import Grayscaler
         from PIL import Image
+
         #output = img = None
 
         try:

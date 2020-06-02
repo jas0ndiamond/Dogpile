@@ -11,11 +11,12 @@ import dispy
 import dispy.httpd
 
 #src/app => src
-src_dir = os.path.dirname( os.path.realpath(__file__))
+srcDir = os.path.dirname( os.path.realpath(__file__))
 
 #sys.path.insert(0, src_dir + "/transform")
 
 from Grayscaler import Grayscaler
+from TransformableImage import TransformableImage
 
 #timeout after job submission and status report
 ####################
@@ -24,28 +25,57 @@ from Grayscaler import Grayscaler
 dispy.config.MsgTimeout = 1200
 dispy.MsgTimeout = 1200
 
+imageOutputDir = srcDir + "/../output"
+
+#TODO: make directory if it doesn't exist
+
 ###############################
 
-# Created = 5
-# Running = 6
-# ProvisionalResult = 7
-# Cancelled = 8
-# Terminated = 9
-# Abandoned = 10
-# Finished = 11
+
+
+images = []
+
+
+def getImageByJobId(id):
+    result = None
+
+    for image in images:
+        if(image.hasJobId(id)):
+            result = image
+            break
+
+    return result
 
 def cluster_status_cb(status, node, job):
+
+    # Created = 5
+    # Running = 6
+    # ProvisionalResult = 7
+    # Cancelled = 8
+    # Terminated = 9
+    # Abandoned = 10
+    # Finished = 11
 
     print("=============cluster_status_cb===========")
 
     if status == dispy.DispyJob.Finished:
         print('job finished for %s: %s' % (job.id, job.result))
 
+        #a row is finished transforming
+
         #how to map the result back to a section of an image
 
-        #result is a pillow image
+        #search all images for image.hasJobId
 
-        job.result.save( ("%s/../output/output%d.jpg" % (src_dir, job.id)), "JPEG")
+        imageToUpdate = getImageByJobId(job.id)
+
+        if(imageToUpdate != None):
+
+            print("Writing result from job %d to iamge %s" % (job.id, imageToUpdate.getFile()))
+
+            imageToUpdate.writeResult(job.id, job.result)
+        else:
+            print("Could not find image for job id %d" % job.id)
 
         #TODO: signal callback work is finished
 
@@ -56,8 +86,15 @@ def cluster_status_cb(status, node, job):
 
     elif status == dispy.DispyNode.Initialized:
         print('node %s with %s CPUs available' % (node.ip_addr, node.avail_cpus))
+    # elif status == dispy.DispyNode.Created:
+    #     print("created job with id %s" % job.id)
+    # elif status == dispy.DispyNode.Running:
+    #     #do nothing. running is a good thing
+    #     pass
     else:  # ignore other status messages
+        #print("ignoring status %d" % status)
         pass
+
 
 def main(args):
 
@@ -74,7 +111,7 @@ def main(args):
     jobs = []
 
 
-    cluster_dependencies = [Grayscaler, ("%s/Grayscaler.py" % src_dir) ]
+    cluster_dependencies = [ ("%s/Grayscaler.py" % srcDir) ]
 
     print("launching cluster with dependencies %s" % cluster_dependencies)
 
@@ -94,29 +131,46 @@ def main(args):
 
     print("Submitting jobs")
 
-    images = []
+
+
+    #an image record is a tuple of
+        # row index
+        # filename
+        # job id
+        # data
+
+    #a transformable image has a collection of job ids
 
     for file in args[1:]:
 
-        #image filename
-        # image = ClusterImage(file)
-        #
-        # pixelRows = image.getPixelRows()
-        #
-        # for pixelRow in pixelRows:
-        #     job = cluster.submit( Grayscaler( pixelRow ) )
-        #
-        #
-        #
-        #     pass
 
         #need image object that has map of job ids to result rows
+        #map of job ids to images
+            #array of images each with has_id function
+        #for an image, a map of job ids to rows
 
         #for an image file, map the resultant job id to a result matrix
 
 
-        newjob = cluster.submit( Grayscaler( Image.open(file) ) )
+        myImage = TransformableImage(file, imageOutputDir)
 
+        rowNum = 0
+        for row in myImage.getPixelRows():
+
+            print ("Row: %s" % row )
+
+            newJob = cluster.submit( Grayscaler( row ) )
+
+            if(newJob):
+                print("Binding job id %s to row num %d" % (newJob.id, rowNum))
+
+                myImage.bindRow(newJob.id, rowNum)
+
+                rowNum += 1
+            else:
+                print("Failed creating job")
+
+        images.append(myImage)
 
         #jobs.append(newjob)
 
@@ -176,6 +230,9 @@ def main(args):
 
     #save results
     print("Save loop")
+
+    for transformedImage in images:
+        transformedImage.writeImage()
 
     # for job in jobs:
     #     if(job.status != dispy.DispyJob.Finished):

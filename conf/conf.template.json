@@ -1,0 +1,10 @@
+{
+	"nodes": ["192.168.x.1", "192.168.x.2", "192.168.x.3", "192.168.x.4"],
+	"secret": "my_node_secret",
+	"dependencies": [
+		"/path/to/ImageTransformer/src/Grayscaler.py"
+	],
+	"loglevel": 2,
+	"client_ip": "192.168.x.100",
+	"pulse_interval": 500
+}

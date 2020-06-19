@@ -15,6 +15,7 @@ srcDir = os.path.dirname( os.path.realpath(__file__))
 
 #sys.path.insert(0, src_dir + "/transform")
 
+from Config import Config
 from Grayscaler import Grayscaler
 from TransformableImage import TransformableImage
 
@@ -56,7 +57,7 @@ def cluster_status_cb(status, node, job):
     # Abandoned = 10
     # Finished = 11
 
-    print("=============cluster_status_cb===========")
+    #print("=============cluster_status_cb===========")
 
     if status == dispy.DispyJob.Finished:
         print('job finished for %s: %s' % (job.id, job.result))
@@ -98,25 +99,33 @@ def cluster_status_cb(status, node, job):
 
 def main(args):
 
-    if(len(args) < 2):
-        print("Need at least 1 file")
+    if(len(args) < 3):
+        print("Usage: grayscale_image.py conf_file file1 file2 file3...")
         exit(1);
 
+    conf = Config(args[1])
+
+    conf.dump()
+
     #todo: config file
-    cluster_nodes = ['192.168.1.22', '192.168.1.20', '192.168.1.6', '192.168.1.17']
-    client_ip = '192.168.1.20'
-    pulse_interval = 300
-    node_secret = "derpy"
+    cluster_nodes = conf.get_nodes()
+    client_ip = conf.get_client_ip()
+    pulse_interval = conf.get_pulse_interval()
+    node_secret = conf.get_secret()
+    cluster_dependencies = conf.get_dependencies()
+    loglevel = conf.get_loglevel()
+
+
 
     jobs = []
 
 
-    cluster_dependencies = [ ("%s/Grayscaler.py" % srcDir) ]
+    #cluster_dependencies = [ ("%s/Grayscaler.py" % srcDir) ]
 
-    print("launching cluster with dependencies %s" % cluster_dependencies)
+    #print("launching cluster with dependencies %s" % cluster_dependencies)
 
 
-    cluster = dispy.JobCluster(Grayscaler.grayscaleImage, cluster_status=cluster_status_cb, nodes=cluster_nodes, depends=cluster_dependencies, loglevel=logging.DEBUG,  ip_addr=client_ip, pulse_interval=pulse_interval, secret=node_secret)
+    cluster = dispy.JobCluster(Grayscaler.grayscaleImage, cluster_status=cluster_status_cb, nodes=cluster_nodes, depends=cluster_dependencies, loglevel=loglevel,  ip_addr=client_ip, pulse_interval=pulse_interval, secret=node_secret)
 
 
 
@@ -141,7 +150,7 @@ def main(args):
 
     #a transformable image has a collection of job ids
 
-    for file in args[1:]:
+    for file in args[2:]:
 
 
         #need image object that has map of job ids to result rows

@@ -49,6 +49,7 @@ class TransformableImage:
         return rows
 
     def getImageCluster(self, x, y):
+
         pass
 
     def bindRow(self, job_id, row_num):

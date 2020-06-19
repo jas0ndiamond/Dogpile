@@ -68,7 +68,7 @@ def main(args):
         exit(1);
 
     #todo: config file
-    cluster_nodes = ['192.168.1.22', '192.168.1.20', '192.168.1.6']
+    cluster_nodes = ['192.168.1.22', '192.168.1.20', '192.168.1.6', '192.168.1.21']
     client_ip = '192.168.1.20'
     pulse_interval = 300
     node_secret = "derpy"

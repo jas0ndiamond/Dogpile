@@ -29,9 +29,10 @@ class TransformableImage:
 
         #built result object
         (self.width, self.height) = self.sourceImage.size
-        self.resultImageData = Image.new('RGB', (self.width, self.height))
+        self.resultImage = None
 
         self.jobIds = {}
+        self.resultData = {}
 
         print ("Built TransformableImage from %s, and outputFile %s" % (self.file, self.outputFile ) )
 
@@ -80,9 +81,11 @@ class TransformableImage:
 
         row = self.getRowByJobID(job_id)
 
+        self.resultData[row] = data
+
         #write data to that segment
-        for i in range(data.width):
-            self.resultImageData.putpixel( (i,row), data.getpixel( (i,0) ) )
+        # for i in range(data.width):
+        #     self.resultImageData.putpixel( (i,row), data.getpixel( (i,0) ) )
 
 
     def writeImage(self):
@@ -90,4 +93,17 @@ class TransformableImage:
         #outputDir/fileName+outputPrefix+extension
         print("Writing image to file %s" % self.outputFile)
 
-        self.resultImageData.save( self.outputFile, self.outputFormat )
+        self.resultImage = Image.new('RGB', (self.width, self.height))
+
+
+        #for each row  in resultData, write that data to the result image in the correct location
+        #for i in range(self.height):
+
+        for y in self.resultData:
+            pixelrow = self.resultData[y]
+
+            for x in range(pixelrow.width):
+                self.resultImage.putpixel( (x,y), pixelrow.getpixel( (x,0) ) )
+
+
+        self.resultImage.save( self.outputFile, self.outputFormat )

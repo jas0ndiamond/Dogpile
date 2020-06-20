@@ -72,7 +72,7 @@ def cluster_status_cb(status, node, job):
 
         if(imageToUpdate != None):
 
-            print("Writing result from job %d to iamge %s" % (job.id, imageToUpdate.getFile()))
+            print("Writing result from job %d to image %s" % (job.id, imageToUpdate.getFile()))
 
             imageToUpdate.writeResult(job.id, job.result)
         else:
@@ -113,8 +113,10 @@ def main(args):
     pulse_interval = conf.get_pulse_interval()
     node_secret = conf.get_secret()
     cluster_dependencies = conf.get_dependencies()
-    loglevel = conf.get_loglevel()
 
+
+    #loglevel = conf.get_loglevel()
+    loglevel = logging.INFO
 
 
     jobs = []

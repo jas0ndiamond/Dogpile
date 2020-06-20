@@ -13,11 +13,6 @@ class Grayscaler(object):
 
         self.sourceImage = sourceImage
 
-        #self.outputImage = None
-
-        #TODO: throw exception if file doesn't exist
-
-
     def getImageJobs(self):
         pass
 
@@ -72,9 +67,6 @@ class Grayscaler(object):
             #our ouput image
             outputImage = Image.new('RGB', (width, height))
 
-
-            #outputPixels = img.load()
-
             pixelsProcessed = 0
             for x in range(width):
                 for y in range(height):
@@ -98,14 +90,3 @@ class Grayscaler(object):
             pass
 
         return outputImage
-
-    # def start(self):
-    #     print("starting")
-    #
-    #     for file in self.files:
-    #         print("file %s" % file)
-    #         outputFile = ("%s/%s_output.jpg" % (self.outputDir, os.path.basename(file) ) )
-    #
-    #         self.grayscaleImage( Image.open(file) ).save(outputFile, "JPEG")
-
-###############################

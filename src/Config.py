@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 
 class Config:
     def __init__(self, file):
@@ -18,6 +19,7 @@ class Config:
         self.secret_key = "secret"
         self.dependencies_key = "dependencies"
         self.loglevel_key = "loglevel"
+        self.dispy_loglevel_key = "dispy_loglevel"
         self.client_ip_key = "client_ip"
         self.pulse_interval_key = "pulse_interval"
 
@@ -43,7 +45,42 @@ class Config:
             self.config[self.dependencies_key] = []
         if(self.config.get(self.loglevel_key) == None):
             #key not found => default loglevel
-            self.config[self.loglevel_key] = 3
+            self.config[self.loglevel_key] = logging.INFO
+        else:
+            level = self.config[self.loglevel_key].lower()
+
+            if( level == "critical" ):
+                self.config[self.loglevel_key] = logging.CRITICAL
+            elif( level == "error" ):
+                self.config[self.loglevel_key] = logging.ERROR
+            elif( level == "warning" ):
+                self.config[self.loglevel_key] = logging.WARNING
+            elif( level == "info" ):
+                self.config[self.loglevel_key] = logging.INFO
+            elif( level == "debug" ):
+                self.config[self.loglevel_key] = logging.DEBUG
+            else:
+                self.config[self.loglevel_key] = logging.INFO
+
+        if(self.config.get(self.dispy_loglevel_key) == None):
+            #key not found => default loglevel
+            self.config[self.dispy_loglevel_key] = logging.INFO
+        else:
+            level = self.config[self.dispy_loglevel_key].lower()
+
+            if( level == "critical" ):
+                self.config[self.dispy_loglevel_key] = logging.CRITICAL
+            elif( level == "error" ):
+                self.config[self.dispy_loglevel_key] = logging.ERROR
+            elif( level == "warning" ):
+                self.config[self.dispy_loglevel_key] = logging.WARNING
+            elif( level == "info" ):
+                self.config[self.dispy_loglevel_key] = logging.INFO
+            elif( level == "debug" ):
+                self.config[self.dispy_loglevel_key] = logging.DEBUG
+            else:
+                self.config[self.dispy_loglevel_key] = logging.INFO
+
         if(self.config.get(self.client_ip_key) == None):
             raise Exception("Missing client ip in config")
         if(self.config.get(self.pulse_interval_key) == None):
@@ -61,6 +98,9 @@ class Config:
 
     def get_loglevel(self):
         return self.config[self.loglevel_key]
+
+    def get_disy_loglevel(self):
+        return self.config[self.dispy_loglevel_key]
 
     def get_client_ip(self):
         return self.config[self.client_ip_key]

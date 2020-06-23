@@ -7,16 +7,14 @@ class Grayscaler(object):
 
         #from Grayscaler import Grayscaler
 
-
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
 
+        #print("Setting loglevel: %d" % logging.getLogger().getEffectiveLevel() )
+
+        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
+
         self.sourceImage = sourceImage
-
-        #self.outputImage = None
-
-        #TODO: throw exception if file doesn't exist
-
 
     def getImageJobs(self):
         pass
@@ -72,16 +70,13 @@ class Grayscaler(object):
             #our ouput image
             outputImage = Image.new('RGB', (width, height))
 
-
-            #outputPixels = img.load()
-
             pixelsProcessed = 0
             for x in range(width):
                 for y in range(height):
                     pixel = self.sourceImage.getpixel( (x, y) )
                     #(42, 55, 48)
 
-                    #print ("Found pixel %d,%d,%d" % pixel)
+                    #self.logger.debug ("Found pixel %d,%d,%d" % pixel)
 
                     #convert pixel to grayscale and load it into pixels
 
@@ -91,21 +86,10 @@ class Grayscaler(object):
 
 
 
-            print("Processed pixels: %d" % pixelsProcessed)
+            self.logger.debug("Processed pixels: %d" % pixelsProcessed)
 
             #output.save(outputFileName, "JPEG")
         finally:
             pass
 
         return outputImage
-
-    # def start(self):
-    #     print("starting")
-    #
-    #     for file in self.files:
-    #         print("file %s" % file)
-    #         outputFile = ("%s/%s_output.jpg" % (self.outputDir, os.path.basename(file) ) )
-    #
-    #         self.grayscaleImage( Image.open(file) ).save(outputFile, "JPEG")
-
-###############################

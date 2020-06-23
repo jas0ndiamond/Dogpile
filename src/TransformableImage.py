@@ -1,4 +1,5 @@
 import os
+import logging
 
 #an image, loaded from a file, with the expectation that some transformation occurs on the image data
 
@@ -7,8 +8,10 @@ from PIL import Image
 
 class TransformableImage:
 
-
     def __init__(self, file, outputDir):
+        logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
 
         self.file = file
 
@@ -29,11 +32,12 @@ class TransformableImage:
 
         #built result object
         (self.width, self.height) = self.sourceImage.size
-        self.resultImageData = Image.new('RGB', (self.width, self.height))
+        self.resultImage = None
 
         self.jobIds = {}
+        self.resultData = {}
 
-        print ("Built TransformableImage from %s, and outputFile %s" % (self.file, self.outputFile ) )
+        self.logger.info ("Built TransformableImage from %s, and outputFile %s" % (self.file, self.outputFile ) )
 
     def getFile(self):
         return self.file
@@ -43,7 +47,7 @@ class TransformableImage:
         rows = []
 
         for i in range(self.height):
-            print ("Cropping at (0, %d),(%d, %d)" % (i, self.width, i+1))
+            self.logger.debug ("Cropping at (0, %d),(%d, %d)" % (i, self.width, i+1))
             rows.append( self.sourceImage.crop( (0, i, self.width, i+1) ) )
 
         return rows
@@ -57,7 +61,7 @@ class TransformableImage:
         if(self.hasJobId(job_id) == False):
             self.jobIds[job_id] = row_num
         else:
-            print("Attempted to rebind row for duplicate job id: %s => %s" % (job_id, self.jobIds.get(job_id) ) )
+            self.logger.warning("Attempted to rebind row for duplicate job id: %s => %s" % (job_id, self.jobIds.get(job_id) ) )
 
     def getRowByJobID(self, job_id):
         result = None
@@ -65,12 +69,11 @@ class TransformableImage:
         if(self.hasJobId(job_id)):
             result = self.jobIds.get(job_id)
         else:
-            print("No bound row for job id: %s" % job_id)
+            self.logger.warning("No bound row for job id: %s" % job_id)
 
         return result
 
     def hasJobId(self, job_id):
-        #print( "hashtable: %s" % self.jobIds )
 
         return (self.jobIds.get(job_id, None) != None)
 
@@ -80,14 +83,29 @@ class TransformableImage:
 
         row = self.getRowByJobID(job_id)
 
+        self.resultData[row] = data
+
         #write data to that segment
-        for i in range(data.width):
-            self.resultImageData.putpixel( (i,row), data.getpixel( (i,0) ) )
+        # for i in range(data.width):
+        #     self.resultImageData.putpixel( (i,row), data.getpixel( (i,0) ) )
 
 
     def writeImage(self):
 
         #outputDir/fileName+outputPrefix+extension
-        print("Writing image to file %s" % self.outputFile)
+        self.logger.info("Writing image to file %s" % self.outputFile)
 
-        self.resultImageData.save( self.outputFile, self.outputFormat )
+        self.resultImage = Image.new('RGB', (self.width, self.height))
+
+
+        #for each row  in resultData, write that data to the result image in the correct location
+        #for i in range(self.height):
+
+        for y in self.resultData:
+            pixelrow = self.resultData[y]
+
+            for x in range(pixelrow.width):
+                self.resultImage.putpixel( (x,y), pixelrow.getpixel( (x,0) ) )
+
+
+        self.resultImage.save( self.outputFile, self.outputFormat )

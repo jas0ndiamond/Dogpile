@@ -7,9 +7,12 @@ class Grayscaler(object):
 
         #from Grayscaler import Grayscaler
 
-
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
+
+        #print("Setting loglevel: %d" % logging.getLogger().getEffectiveLevel() )
+
+        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
 
         self.sourceImage = sourceImage
 
@@ -73,7 +76,7 @@ class Grayscaler(object):
                     pixel = self.sourceImage.getpixel( (x, y) )
                     #(42, 55, 48)
 
-                    #print ("Found pixel %d,%d,%d" % pixel)
+                    #self.logger.debug ("Found pixel %d,%d,%d" % pixel)
 
                     #convert pixel to grayscale and load it into pixels
 
@@ -83,7 +86,7 @@ class Grayscaler(object):
 
 
 
-            print("Processed pixels: %d" % pixelsProcessed)
+            self.logger.debug("Processed pixels: %d" % pixelsProcessed)
 
             #output.save(outputFileName, "JPEG")
         finally:

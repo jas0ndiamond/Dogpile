@@ -4,7 +4,8 @@
 	"dependencies": [
 		"/path/to/ImageTransformer/src/Grayscaler.py"
 	],
-	"loglevel": 2,
+	"loglevel": "info",
+	"dispy_loglevel": "info",
 	"client_ip": "192.168.x.100",
 	"pulse_interval": 500
 }

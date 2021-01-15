@@ -13,15 +13,15 @@ import dispy.httpd
 #src/app => src
 srcDir = os.path.dirname( os.path.realpath(__file__))
 
-#sys.path.insert(0, src_dir + "/transform")
-
 from Config import Config
 from Grayscaler import Grayscaler
 from TransformableImage import TransformableImage
+from ClusterFactory import ClusterFactory
 
 #timeout after job submission and status report
 ####################
 #doesn't seem to work, need to add timeout in dispy source
+#TODO: figure this out
 ####################
 dispy.config.MsgTimeout = 1200
 dispy.MsgTimeout = 1200
@@ -35,9 +35,58 @@ logger = logging.getLogger()
 
 ###############################
 
-
-
 images = []
+
+def cluster_status_cb(status, node, job):
+
+        # Created = 5
+        # Running = 6
+        # ProvisionalResult = 7
+        # Cancelled = 8
+        # Terminated = 9
+        # Abandoned = 10
+        # Finished = 11
+
+        #self.logger.debug("=============cluster_status_cb===========")
+
+        if status == dispy.DispyJob.Finished:
+            logger.debug('job finished for %s: %s' % (job.id, job.result))
+
+            #a block is finished transforming
+
+            #how to map the result back to a section of an image
+
+            #search all images for image.hasJobId
+
+            imageToUpdate = getImageByJobId(job.id)
+
+            if(imageToUpdate != None):
+
+                logger.debug("Writing result from job %d to image %s" % (job.id, imageToUpdate.getFile()))
+
+                imageToUpdate.writeResult(job.id, job.result)
+            else:
+                logger.warning("Could not find image for job id %d" % job.id)
+
+				#TODO: add to result queue
+
+            #TODO: signal callback work is finished
+
+        elif status == dispy.DispyJob.Terminated or status == dispy.DispyJob.Cancelled or status == dispy.DispyJob.Abandoned:
+            logger.warn('job failed for %s failed: %s' % (job.id, job.exception))
+
+            #TODO: signal callback work is finished
+
+        elif status == dispy.DispyNode.Initialized:
+            logger.debug('node %s with %s CPUs available' % (node.ip_addr, node.avail_cpus))
+        # elif status == dispy.DispyNode.Created:
+        #     print("created job with id %s" % job.id)
+        # elif status == dispy.DispyNode.Running:
+        #     #do nothing. running is a good thing
+        #     pass
+        else:  # ignore other status messages
+            #print("ignoring status %d" % status)
+            pass
 
 
 def getImageByJobId(id):
@@ -50,56 +99,6 @@ def getImageByJobId(id):
 
     return result
 
-def cluster_status_cb(status, node, job):
-
-    # Created = 5
-    # Running = 6
-    # ProvisionalResult = 7
-    # Cancelled = 8
-    # Terminated = 9
-    # Abandoned = 10
-    # Finished = 11
-
-    #self.logger.debug("=============cluster_status_cb===========")
-
-    if status == dispy.DispyJob.Finished:
-        logger.debug('job finished for %s: %s' % (job.id, job.result))
-
-        #a row is finished transforming
-
-        #how to map the result back to a section of an image
-
-        #search all images for image.hasJobId
-
-        imageToUpdate = getImageByJobId(job.id)
-
-        if(imageToUpdate != None):
-
-            logger.debug("Writing result from job %d to image %s" % (job.id, imageToUpdate.getFile()))
-
-            imageToUpdate.writeResult(job.id, job.result)
-        else:
-            logger.warning("Could not find image for job id %d" % job.id)
-
-        #TODO: signal callback work is finished
-
-    elif status == dispy.DispyJob.Terminated or status == dispy.DispyJob.Cancelled or status == dispy.DispyJob.Abandoned:
-        logger.warn('job failed for %s failed: %s' % (job.id, job.exception))
-
-        #TODO: signal callback work is finished
-
-    elif status == dispy.DispyNode.Initialized:
-        logger.debug('node %s with %s CPUs available' % (node.ip_addr, node.avail_cpus))
-    # elif status == dispy.DispyNode.Created:
-    #     print("created job with id %s" % job.id)
-    # elif status == dispy.DispyNode.Running:
-    #     #do nothing. running is a good thing
-    #     pass
-    else:  # ignore other status messages
-        #print("ignoring status %d" % status)
-        pass
-
-
 def main(args):
 
     if(len(args) < 3):
@@ -110,18 +109,11 @@ def main(args):
 
     conf.dump()
 
-    #todo: config file
-    cluster_nodes = conf.get_nodes()
-    client_ip = conf.get_client_ip()
-    pulse_interval = conf.get_pulse_interval()
-    node_secret = conf.get_secret()
-    cluster_dependencies = conf.get_dependencies()
-    loglevel = conf.get_loglevel()
-    loglevel_dispy = conf.get_disy_loglevel()
+    logger.setLevel(conf.get_loglevel())
 
-    logger.setLevel(loglevel)
+    factory = ClusterFactory(conf)
 
-
+    cluster = factory.buildCluster(Grayscaler.grayscaleImage, cluster_status_cb)
 
     jobs = []
 
@@ -131,7 +123,7 @@ def main(args):
     #logger.debug(("launching cluster with dependencies %s" % cluster_dependencies)
 
     #TODO: msgTimeout arg?
-    cluster = dispy.JobCluster(Grayscaler.grayscaleImage, cluster_status=cluster_status_cb, nodes=cluster_nodes, depends=cluster_dependencies, loglevel=loglevel_dispy,  ip_addr=client_ip, pulse_interval=pulse_interval, secret=node_secret)
+    #cluster = dispy.JobCluster(Grayscaler.grayscaleImage, cluster_status=cluster_status_cb, nodes=cluster_nodes, depends=cluster_dependencies, loglevel=loglevel_dispy,  ip_addr=client_ip, pulse_interval=pulse_interval, secret=node_secret)
 
     #TODO: cluster tostring log statement
 
@@ -145,14 +137,6 @@ def main(args):
     #expand image files into a list of jobs
 
     logger.info("Submitting jobs")
-
-
-
-    #an image record is a tuple of
-        # row index
-        # filename
-        # job id
-        # data
 
     #a transformable image has a collection of job ids
 
@@ -210,7 +194,7 @@ def main(args):
 
     #TODO: compare finished job count to expected
 
-    logger.info("Shutting down...")
+    logger.info("Job queue exhausted. Shutting down...")
     time.sleep(5)
 
     if(http_server):
@@ -226,14 +210,6 @@ def main(args):
 
     for transformedImage in images:
         transformedImage.writeImage()
-
-    # for job in jobs:
-    #     if(job.status != dispy.DispyJob.Finished):
-    #         print('job %s failed: %s' % (job.id, job.exception))
-    #     else:
-    #         print('job %s finished: %s' % (job.id, job.result))
-    #
-    #         job.result.save( ("../output/output%d.jpg" % job.id), "JPEG")
 
     logger.info("Exiting")
 

@@ -10,6 +10,9 @@ from PIL import Image
 import dispy
 import dispy.httpd
 
+import queue
+from threading import Thread
+
 #src/app => src
 srcDir = os.path.dirname( os.path.realpath(__file__))
 
@@ -26,9 +29,11 @@ from ClusterFactory import ClusterFactory
 dispy.config.MsgTimeout = 1200
 dispy.MsgTimeout = 1200
 
+retryQueueSleep = 1
+
 imageOutputDir = srcDir + "/../output"
 
-logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
+logging.basicConfig(filename='run.log', format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
 logger = logging.getLogger()
 
 #TODO: make directory if it doesn't exist
@@ -36,6 +41,43 @@ logger = logging.getLogger()
 ###############################
 
 images = []
+
+resultRetryQueue = queue.Queue()
+resultRetryFailedQueue = queue.Queue()
+resultRetryQueueRunning = True
+
+###############################
+
+def runRetries():
+    
+    while(resultRetryQueueRunning):
+        logger.debug('Result Retry cycle starting' )
+
+        #try writeNodeResult on anything in the queue
+        while(resultRetryQueue.empty() == False):
+            logger.debug('entering retry cycle with queue size: %d' %  resultRetryQueue.qsize() )
+
+            #retry each item in the queue once
+            retryJob = resultRetryQueue.get()
+
+            #TODO: decouple this
+            if(writeNodeResult(retryJob)):
+                logger.info('Retry job result write was successful for %s: %s' % (retryJob.id, retryJob.result))
+            else:
+                logger.warning('Retry job result write was NOT successful for %s: %s' % (retryJob.id, retryJob.result))
+
+                resultRetryFailedQueue.put(retryJob)
+
+        #reload the retry queue with any results that failed to be processed by writeNodeResult
+        while(resultRetryFailedQueue.empty() == False):
+            logger.warning('Emptying retry failed queue: %d' % resultRetryFailedQueue.qsize() )
+            resultRetryQueue.put(resultRetryFailedQueue.get())
+        
+        logger.debug('Result Retry cycle finished' )
+
+        time.sleep(retryQueueSleep)
+
+    logger.info('Retry Queue thread exiting' )
 
 def cluster_status_cb(status, node, job):
 
@@ -54,21 +96,14 @@ def cluster_status_cb(status, node, job):
 
             #a block is finished transforming
 
-            #how to map the result back to a section of an image
-
             #search all images for image.hasJobId
+            if writeNodeResult(job) == False:
 
-            imageToUpdate = getImageByJobId(job.id)
+                logger.debug('job %d added to retry queue' % job.id )
 
-            if(imageToUpdate != None):
+                #add to result retry queue
+                resultRetryQueue.put( job )
 
-                logger.debug("Writing result from job %d to image %s" % (job.id, imageToUpdate.getFile()))
-
-                imageToUpdate.writeResult(job.id, job.result)
-            else:
-                logger.warning("Could not find image for job id %d" % job.id)
-
-				#TODO: add to result queue
 
             #TODO: signal callback work is finished
 
@@ -76,6 +111,8 @@ def cluster_status_cb(status, node, job):
             logger.warn('job failed for %s failed: %s' % (job.id, job.exception))
 
             #TODO: signal callback work is finished
+
+            #TODO: remove id from result mapping?
 
         elif status == dispy.DispyNode.Initialized:
             logger.debug('node %s with %s CPUs available' % (node.ip_addr, node.avail_cpus))
@@ -86,8 +123,25 @@ def cluster_status_cb(status, node, job):
         #     pass
         else:  # ignore other status messages
             #print("ignoring status %d" % status)
-            pass
+            pass    
 
+            
+
+def writeNodeResult(job):
+    imageToUpdate = getImageByJobId(job.id)
+
+    if(imageToUpdate != None):
+        logger.debug("Writing result from job %d to image %s" % (job.id, imageToUpdate.getFile()))
+        
+        imageToUpdate.writeResult(job.id, job.result)
+
+        #TODO: remove id from result mapping?
+
+        return True
+    else:
+        logger.warning("Could not find image for job id %d" % job.id)
+
+        return False
 
 def getImageByJobId(id):
     result = None
@@ -132,6 +186,10 @@ def main(args):
     #sleep just in case a host is slow to respond
     logger.info("Sleeping, buying time for sluggish nodes to report...")
     time.sleep(5)
+
+    #start retry queue thread
+    t = Thread(target=runRetries, daemon=True)
+    t.start()
 
 
     #expand image files into a list of jobs
@@ -195,6 +253,24 @@ def main(args):
     #TODO: compare finished job count to expected
 
     logger.info("Job queue exhausted. Shutting down...")
+
+    #shutdown retry queue
+    maxAttempts = 10
+    i = 0
+    while( resultRetryQueue.empty() == False and i < maxAttempts):
+        logger.debug("Waiting on retry jobs: %i, attempt %d" % resultRetryQueue.qsize(), i )
+
+        time.sleep(1)
+        i += 1
+
+    if(i == maxAttempts):
+        logger.warning("Result Retry Queue couldn't clear pending results. size was: " % resultRetryQueue.qsize() )
+
+    logger.debug("Signal termination for Result Retry Queue thread")
+
+    resultRetryQueueRunning = False
+
+    #wait for shutdowns
     time.sleep(5)
 
     if(http_server):

@@ -14,12 +14,13 @@ import queue
 from threading import Thread
 
 #src/app => src
-srcDir = os.path.dirname( os.path.realpath(__file__))
+srcDir = os.path.dirname( os.path.realpath(__file__) )
 
 from Config import Config
 from Grayscaler import Grayscaler
 from TransformableImage import TransformableImage
 from ClusterFactory import ClusterFactory
+from ResultRetryQueue import ResultRetryQueue
 
 #timeout after job submission and status report
 ####################
@@ -31,53 +32,62 @@ dispy.MsgTimeout = 1200
 
 retryQueueSleep = 1
 
-imageOutputDir = srcDir + "/../output"
-
 logging.basicConfig(filename='run.log', format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
 logger = logging.getLogger()
 
-#TODO: make directory if it doesn't exist
+
+imageOutputDir = srcDir + "/../output"
+
+#make the ouput directory if it doesn't exist
+if(os.path.exists(imageOutputDir) == False):
+    try:
+        os.makedirs(imageOutputDir, 0o755)
+    except OSError:
+        logger.warn ("Creation of output directory %s failed" % imageOutputDir)
+        exit(1)
+else:
+    logger.debug("Using existing output directory")
 
 ###############################
 
 images = []
 
-resultRetryQueue = queue.Queue()
-resultRetryFailedQueue = queue.Queue()
-resultRetryQueueRunning = True
+#resultRetryQueue = queue.Queue()
+#resultRetryFailedQueue = queue.Queue()
+#resultRetryQueueRunning = True
 
 ###############################
 
-def runRetries():
-    
-    while(resultRetryQueueRunning):
-        logger.debug('Result Retry cycle starting' )
-
-        #try writeNodeResult on anything in the queue
-        while(resultRetryQueue.empty() == False):
-            logger.debug('entering retry cycle with queue size: %d' %  resultRetryQueue.qsize() )
-
-            #retry each item in the queue once
-            retryJob = resultRetryQueue.get()
-
-            #TODO: decouple this
-            if(writeNodeResult(retryJob)):
-                logger.info('Retry job result write was successful for %s: %s' % (retryJob.id, retryJob.result))
-            else:
-                logger.warning('Retry job result write was NOT successful for %s: %s' % (retryJob.id, retryJob.result))
-
-                resultRetryFailedQueue.put(retryJob)
-
-        #reload the retry queue with any results that failed to be processed by writeNodeResult
-        while(resultRetryFailedQueue.empty() == False):
-            logger.warning('Emptying retry failed queue: %d' % resultRetryFailedQueue.qsize() )
-            resultRetryQueue.put(resultRetryFailedQueue.get())
-        
-        logger.debug('Result Retry cycle finished' )
-
-        time.sleep(retryQueueSleep)
-
-    logger.info('Retry Queue thread exiting' )
+#def runRetries():
+#    
+#    while(resultRetryQueueRunning):
+#        logger.debug('Result Retry cycle starting' )
+#
+#        #try writeNodeResult on anything in the queue
+#        while(self.resultRetryQueue.empty() == False):
+#            logger.debug('entering retry cycle with queue size: %d' %  resultRetryQueue.qsize() )
+#
+#            #retry each item in the queue once
+#            retryJob = resultRetryQueue.get()
+#
+#            #TODO: decouple this
+#            if(writeNodeResult(retryJob)):
+#                logger.info('Retry job result write was successful for %s: %s' % (retryJob.id, retryJob.result))
+#            else:
+#                logger.warning('Retry job result write was NOT successful for %s: %s' % (retryJob.id, retryJob.result))
+#
+#                resultRetryFailedQueue.put(retryJob)
+#
+#        #reload the retry queue with any results that failed to be processed by writeNodeResult
+#        while(resultRetryFailedQueue.empty() == False):
+#            logger.warning('Emptying retry failed queue: %d' % resultRetryFailedQueue.qsize() )
+#            resultRetryQueue.put(resultRetryFailedQueue.get())
+#        
+#        logger.debug('Result Retry cycle finished' )
+#
+#        time.sleep(retryQueueSleep)
+#
+#    logger.info('Retry Queue thread exiting' )
 
 def cluster_status_cb(status, node, job):
 
@@ -99,11 +109,12 @@ def cluster_status_cb(status, node, job):
             #search all images for image.hasJobId
             if writeNodeResult(job) == False:
 
-                logger.debug('job %d added to retry queue' % job.id )
+                logger.debug('writing result for job %d failed, adding to retry queue' % job.id )
 
                 #add to result retry queue
-                resultRetryQueue.put( job )
+                #resultRetryQueue.put( job )
 
+                retryQueue.addJob( job )
 
             #TODO: signal callback work is finished
 
@@ -129,6 +140,7 @@ def cluster_status_cb(status, node, job):
 
 def writeNodeResult(job):
     imageToUpdate = getImageByJobId(job.id)
+    retval = False
 
     if(imageToUpdate != None):
         logger.debug("Writing result from job %d to image %s" % (job.id, imageToUpdate.getFile()))
@@ -137,11 +149,13 @@ def writeNodeResult(job):
 
         #TODO: remove id from result mapping?
 
-        return True
+        retval = True
     else:
         logger.warning("Could not find image for job id %d" % job.id)
 
-        return False
+    return retval
+
+
 
 def getImageByJobId(id):
     result = None
@@ -152,6 +166,12 @@ def getImageByJobId(id):
             break
 
     return result
+
+###########################3
+
+#need this initialized here so the dispy callback cluster_status_cb can reference it
+retryQueue = ResultRetryQueue(retryCallback=writeNodeResult)
+
 
 def main(args):
 
@@ -188,9 +208,11 @@ def main(args):
     time.sleep(5)
 
     #start retry queue thread
-    t = Thread(target=runRetries, daemon=True)
-    t.start()
+    #t = Thread(target=runRetries, daemon=True)
+    #t.start()
 
+    #retryQueue = ResultRetryQueue(retryCallback=writeNodeResult)
+    retryQueue.start()
 
     #expand image files into a list of jobs
 
@@ -254,21 +276,13 @@ def main(args):
 
     logger.info("Job queue exhausted. Shutting down...")
 
-    #shutdown retry queue
-    maxAttempts = 10
-    i = 0
-    while( resultRetryQueue.empty() == False and i < maxAttempts):
-        logger.debug("Waiting on retry jobs: %i, attempt %d" % resultRetryQueue.qsize(), i )
+    retryQueue.stop()
 
-        time.sleep(1)
-        i += 1
 
-    if(i == maxAttempts):
-        logger.warning("Result Retry Queue couldn't clear pending results. size was: " % resultRetryQueue.qsize() )
 
     logger.debug("Signal termination for Result Retry Queue thread")
 
-    resultRetryQueueRunning = False
+#    resultRetryQueueRunning = False
 
     #wait for shutdowns
     time.sleep(5)

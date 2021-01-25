@@ -17,8 +17,10 @@ class ClusterFactory:
         self.config = config
 
     def buildCluster(self, runFunction, status_callback=None):
-
+        
+        #if the local machine is a node, then it has to be specified by ip address. it doesn't seem to work with hostname or fqdn
         cluster_nodes = self.config.get_nodes()
+
         client_ip = self.config.get_client_ip()
         pulse_interval = self.config.get_pulse_interval()
         node_secret = self.config.get_secret()

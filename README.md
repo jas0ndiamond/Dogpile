@@ -1,3 +1,3 @@
-## ImageTransformer
+## Dogpile
 
-Perform transformation on image sets on a cluster using dispy
+Easily create and execute distributed jobs on a dispy cluster

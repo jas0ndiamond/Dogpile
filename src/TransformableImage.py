@@ -3,19 +3,25 @@ import logging
 
 #an image, loaded from a file, with the expectation that some transformation occurs on the image data
 
-
 from PIL import Image
 
-class TransformableImage:
+from ClusterJobResult import ClusterJobResult
 
-    def __init__(self, file, outputDir):
-        logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
+#TODO: generic container for an entity to be handled by DogPileTasks
+#class TransformableImage(ClusterEntity):
+class TransformableImage(ClusterJobResult):
+
+    def __init__(self, imageFile, outputDir):
+        
+        super().__init__()
+        
+        #logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
 
-        self.file = file
+        self.imageFile = imageFile
 
-        self.fileName = os.path.splitext( os.path.basename(self.file) )[0]
+        self.fileName = os.path.splitext( os.path.basename(self.imageFile) )[0]
 
         self.outputDir = outputDir
         self.outputSuffix = "_output"
@@ -28,7 +34,7 @@ class TransformableImage:
 
         #TODO: file existence check
 
-        self.sourceImage = Image.open(file)
+        self.sourceImage = Image.open(imageFile)
 
         #built result object
         (self.width, self.height) = self.sourceImage.size
@@ -37,10 +43,10 @@ class TransformableImage:
         self.jobIds = {}
         self.resultData = {}
 
-        self.logger.info ("Built TransformableImage from %s, and outputFile %s" % (self.file, self.outputFile ) )
+        self.logger.info ("Built TransformableImage from %s, and outputFile %s" % (self.imageFile, self.outputFile ) )
 
     def getFile(self):
-        return self.file
+        return self.imageFile
 
     def getPixelRows(self):
 
@@ -72,10 +78,6 @@ class TransformableImage:
             self.logger.warning("No bound row for job id: %s" % job_id)
 
         return result
-
-    def hasJobId(self, job_id):
-
-        return (self.jobIds.get(job_id, None) != None)
 
     def writeResult(self, job_id, data):
 
@@ -109,3 +111,6 @@ class TransformableImage:
 
 
         self.resultImage.save( self.outputFile, self.outputFormat )
+        
+    def toString(self):
+        return "I am a transformable image: %s" % self.imageFile

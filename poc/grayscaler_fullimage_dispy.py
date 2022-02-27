@@ -141,14 +141,14 @@ def main(args):
 
     print("launching cluster")
 
-    cluster = dispy.JobCluster(Grayscaler.grayscaleImage, nodes=['192.168.1.22', '192.168.1.20', '192.168.1.6'], depends=[Grayscaler], loglevel=logging.DEBUG,  ip_addr='192.168.1.20')
+    cluster = dispy.JobCluster(Grayscaler.grayscaleImage, nodes=['192.168.1.129'], secret="derpy", depends=[Grayscaler], loglevel=logging.DEBUG,  ip_addr='192.168.1.244')
 
 
 
     http_server = dispy.httpd.DispyHTTPServer(cluster)
 
     #sleep just in case a host is slow to respond
-    time.sleep(10)
+    time.sleep(25)
 
 
     #expand image files into a list of jobs

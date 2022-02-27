@@ -141,8 +141,8 @@ def main(args):
 
     print("launching cluster")
 
-    cluster_nodes = ['192.168.1.22', '192.168.1.20', '192.168.1.6']
-    client_ip = '192.168.1.20'
+    cluster_nodes = ['192.168.1.129', '192.168.1.20', '192.168.1.6']
+    client_ip = '192.168.1.244'
     pulse_interval = 300
     node_secret = "derpy"
 

@@ -1,0 +1,17 @@
+__pycache__/
+
+*.dir
+*.bak
+*.dat
+
+output/
+
+poc/output
+
+scripts/
+
+conf/conf.d*.json
+
+todo.txt
+
+*.log

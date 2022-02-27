@@ -1,6 +1,6 @@
 import dispy
-
 import dispy.config
+import logging
 from dispy.config import MsgTimeout
 
 from Config import Config
@@ -8,7 +8,12 @@ from Grayscaler import Grayscaler
 
 class ClusterFactory:
     def __init__(self, config):
+        
         self.setConfig(config)
+
+        #logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
 
         #TODO set this correctly
         dispy.config.MsgTimeout = 1200
@@ -16,10 +21,15 @@ class ClusterFactory:
     def setConfig(self, config):
         self.config = config
 
+    def getConfig(self):
+        return self.config
+
     def buildCluster(self, runFunction, status_callback=None):
-        
+
         #if the local machine is a node, then it has to be specified by ip address. it doesn't seem to work with hostname or fqdn
         cluster_nodes = self.config.get_nodes()
+
+        self.logger.debug("Using cluster nodes: %s" % cluster_nodes)
 
         client_ip = self.config.get_client_ip()
         pulse_interval = self.config.get_pulse_interval()

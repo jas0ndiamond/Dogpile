@@ -3,15 +3,8 @@ import os
 import logging
 import time
 
-import numpy as np
-
-from PIL import Image
-
 import dispy
 import dispy.httpd
-
-import queue
-from threading import Thread
 
 #src/app => src
 srcDir = os.path.dirname( os.path.realpath(__file__) )
@@ -30,15 +23,13 @@ from ResultRetryQueue import ResultRetryQueue
 dispy.config.MsgTimeout = 1200
 dispy.MsgTimeout = 1200
 
-retryQueueSleep = 1
-
 logging.basicConfig(filename='run.log', format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
 logger = logging.getLogger()
 
 
 imageOutputDir = srcDir + "/../output"
 
-#make the ouput directory if it doesn't exist
+#make the output directory if it doesn't exist
 if(os.path.exists(imageOutputDir) == False):
     try:
         os.makedirs(imageOutputDir, 0o755)
@@ -51,92 +42,6 @@ else:
 ###############################
 
 images = []
-
-#resultRetryQueue = queue.Queue()
-#resultRetryFailedQueue = queue.Queue()
-#resultRetryQueueRunning = True
-
-###############################
-
-#def runRetries():
-#    
-#    while(resultRetryQueueRunning):
-#        logger.debug('Result Retry cycle starting' )
-#
-#        #try writeNodeResult on anything in the queue
-#        while(self.resultRetryQueue.empty() == False):
-#            logger.debug('entering retry cycle with queue size: %d' %  resultRetryQueue.qsize() )
-#
-#            #retry each item in the queue once
-#            retryJob = resultRetryQueue.get()
-#
-#            #TODO: decouple this
-#            if(writeNodeResult(retryJob)):
-#                logger.info('Retry job result write was successful for %s: %s' % (retryJob.id, retryJob.result))
-#            else:
-#                logger.warning('Retry job result write was NOT successful for %s: %s' % (retryJob.id, retryJob.result))
-#
-#                resultRetryFailedQueue.put(retryJob)
-#
-#        #reload the retry queue with any results that failed to be processed by writeNodeResult
-#        while(resultRetryFailedQueue.empty() == False):
-#            logger.warning('Emptying retry failed queue: %d' % resultRetryFailedQueue.qsize() )
-#            resultRetryQueue.put(resultRetryFailedQueue.get())
-#        
-#        logger.debug('Result Retry cycle finished' )
-#
-#        time.sleep(retryQueueSleep)
-#
-#    logger.info('Retry Queue thread exiting' )
-
-def cluster_status_cb(status, node, job):
-
-        # Created = 5
-        # Running = 6
-        # ProvisionalResult = 7
-        # Cancelled = 8
-        # Terminated = 9
-        # Abandoned = 10
-        # Finished = 11
-
-        #self.logger.debug("=============cluster_status_cb===========")
-
-        if status == dispy.DispyJob.Finished:
-            logger.debug('job finished for %s: %s' % (job.id, job.result))
-
-            #a block is finished transforming
-
-            #search all images for image.hasJobId
-            if writeNodeResult(job) == False:
-
-                logger.debug('writing result for job %d failed, adding to retry queue' % job.id )
-
-                #add to result retry queue
-                #resultRetryQueue.put( job )
-
-                retryQueue.addJob( job )
-
-            #TODO: signal callback work is finished
-
-        elif status == dispy.DispyJob.Terminated or status == dispy.DispyJob.Cancelled or status == dispy.DispyJob.Abandoned:
-            logger.warn('job failed for %s failed: %s' % (job.id, job.exception))
-
-            #TODO: signal callback work is finished
-
-            #TODO: remove id from result mapping?
-
-        elif status == dispy.DispyNode.Initialized:
-            logger.debug('node %s with %s CPUs available' % (node.ip_addr, node.avail_cpus))
-        # elif status == dispy.DispyNode.Created:
-        #     print("created job with id %s" % job.id)
-        # elif status == dispy.DispyNode.Running:
-        #     #do nothing. running is a good thing
-        #     pass
-        else:  # ignore other status messages
-            #print("ignoring status %d" % status)
-            pass    
-
-            
 
 def writeNodeResult(job):
     imageToUpdate = getImageByJobId(job.id)
@@ -167,10 +72,69 @@ def getImageByJobId(id):
 
     return result
 
+#TODO: find a good spot to initialize this
+#can't seem to add to retry queue with addjob in cluster_status_cb
+#No logging for ResultRetryQueue but there is for Transformable Image
+#need this initialized here so the dispy callback cluster_status_cb can reference it
+#
+
+
+
+###############################
+
+def cluster_status_cb(status, node, job):
+
+        # Created = 5
+        # Running = 6
+        # ProvisionalResult = 7
+        # Cancelled = 8
+        # Terminated = 9
+        # Abandoned = 10
+        # Finished = 11
+
+        #self.logger.debug("=============cluster_status_cb===========")
+
+        if status == dispy.DispyJob.Finished:
+            logger.debug('job finished for %s: %s' % (job.id, job.result))
+
+            #a block is finished transforming
+
+            #search all images for image.hasJobId
+            if writeNodeResult(job) == False:
+
+                logger.debug('writing result for job %d failed, adding to retry queue' % job.id )
+
+                retryQueue.addJob( job )
+
+            #TODO: signal callback work is finished
+
+        elif status == dispy.DispyJob.Terminated or status == dispy.DispyJob.Cancelled or status == dispy.DispyJob.Abandoned:
+            logger.warn('job failed for %s failed: %s' % (job.id, job.exception))
+
+            #TODO: signal callback work is finished
+
+            #TODO: remove id from result mapping?
+
+        elif status == dispy.DispyNode.Initialized:
+            logger.debug('node %s with %s CPUs available' % (node.ip_addr, node.avail_cpus))
+        # elif status == dispy.DispyNode.Created:
+        #     print("created job with id %s" % job.id)
+        # elif status == dispy.DispyNode.Running:
+        #     #do nothing. running is a good thing
+        #     pass
+        else:  # ignore other status messages
+            #print("ignoring status %d" % status)
+            
+            logger.warn("Unexpected job status: %d" % status )
+            pass    
+
+            
+
+
+
 ###########################3
 
-#need this initialized here so the dispy callback cluster_status_cb can reference it
-retryQueue = ResultRetryQueue(retryCallback=writeNodeResult)
+
 
 
 def main(args):
@@ -187,10 +151,14 @@ def main(args):
 
     factory = ClusterFactory(conf)
 
+
     cluster = factory.buildCluster(Grayscaler.grayscaleImage, cluster_status_cb)
 
     jobs = []
 
+    #global so callback functions and utilities can reference
+    global retryQueue 
+    retryQueue = ResultRetryQueue(retryCallback=writeNodeResult)
 
     #cluster_dependencies = [ ("%s/Grayscaler.py" % srcDir) ]
 
@@ -208,10 +176,6 @@ def main(args):
     time.sleep(5)
 
     #start retry queue thread
-    #t = Thread(target=runRetries, daemon=True)
-    #t.start()
-
-    #retryQueue = ResultRetryQueue(retryCallback=writeNodeResult)
     retryQueue.start()
 
     #expand image files into a list of jobs
@@ -273,12 +237,11 @@ def main(args):
     ################################################
 
     #TODO: compare finished job count to expected
+    #is cluster.wait suitable for determining if we're done?
 
     logger.info("Job queue exhausted. Shutting down...")
 
     retryQueue.stop()
-
-
 
     logger.debug("Signal termination for Result Retry Queue thread")
 
@@ -298,6 +261,9 @@ def main(args):
     #save results
     logger.info("Writing results")
 
+    #TODO: move to thread and write alongside main processing. 
+    #for applications like a camera feed, the input never stops coming,
+    #so we can't wait to the end or we'll run out of memory
     for transformedImage in images:
         transformedImage.writeImage()
 

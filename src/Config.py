@@ -2,6 +2,9 @@ import json
 import os
 import logging
 
+#a config object contains the dispy cluster config, plus task directives
+#A DogPileTask reads the cluster config and loglevel, while a subclass will process stuff
+#like output directory, job creation tuning parameters, timeouts, etc
 class Config:
     def __init__(self, file):
 

@@ -24,7 +24,6 @@ class DogPileTask:
     
     def __init__(self, confFile):
         
-        #logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
         
@@ -47,21 +46,12 @@ class DogPileTask:
         self.dispyHttpServer = None
         self.cluster = None
         
-        #default callback that just whines about not being overriden
-        #self.writeNodeResultCallback = self.defaultWriteNodeResultCallback
-        
-        #call the subclass that will define the dispy lambda, and the status callback
-        #self.buildCluster()
-        
         #sleep just in case a host is slow to respond
         #TODO: read sleep time from config
         self.logger.info("Sleeping, buying time for sluggish nodes to report...")
         time.sleep(5)
             
         self.logger.info("DogPileTask construction completed")
-
-#    def setWriteNodeResultCallback(self, callback):
-#        self.writeNodeResultCallback = callback
 
     def startDispyHttpServer(self):
         self.logger.info("Starting up dispy http server")
@@ -152,8 +142,5 @@ class DogPileTask:
     def waitForCompletion(self, interval):
         self.quit = False
         while( self.quit != True and self.cluster.wait(interval) != True ):
-            
-            print("waiting on something?")
-            
             self.cluster.print_status()
  

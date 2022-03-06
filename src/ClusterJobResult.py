@@ -3,12 +3,15 @@ import logging
 class ClusterJobResult:
     def __init__(self):
         
+        #set the log level explicitly. effective log level may not be available
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
+        self.logger.setLevel( logging.INFO )
         
         self.jobIds = {}
         
         self.resultData = {}
+        
+        self.logger.info("ClusterJobResult built")
         
         pass
         

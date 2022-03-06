@@ -23,9 +23,10 @@ logging.basicConfig(filename=logFile, format='%(asctime)s [%(levelname)s] -- [%(
 logger = logging.getLogger(__name__)
 
 #logger.setLevel( logging.getLogger().getEffectiveLevel() )
-logger.setLevel( logging.DEBUG )
+logger.setLevel( logging.INFO )
 
-#default generic implementation. listen for job statuses, add to retry queue if there's no result mapping yet
+#simple generic implementation. listen for job statuses, add to retry queue if there's no result mapping yet
+#jobs do not generate other jobs
 def clusterStatusCallback(status, node, job):
 
     # Created = 5
@@ -36,11 +37,10 @@ def clusterStatusCallback(status, node, job):
     # Abandoned = 10
     # Finished = 11
 
-    #self.logger.debug("=============cluster_status_cb===========")
+    logger.debug("=============cluster_status_cb===========")
 
     if status == dispy.DispyJob.Finished:
-        #DogPileTask._clusterStatusCallbackLog('job finished for %s: %s' % (job.id, job.result))
-        print('job finished for %s: %s' % (job.id, job.result))
+        logger.debug('job finished for %s: %s' % (job.id, job.result))
 
         #a block is finished transforming
 
@@ -53,37 +53,28 @@ def clusterStatusCallback(status, node, job):
 
         #search all images for image.hasJobId
         if grayscaleImageTask.writeClusterJobResult(job) == False:
+            logger.debug('writing result for job %d failed, adding to retry queue' % job.id )
 
-            #DogPileTask._clusterStatusCallbackLog('writing result for job %d failed, adding to retry queue' % job.id )
-            print('writing result for job %d failed, adding to retry queue' % job.id )
-
-            #this is done in writeClusterJobResult
-            #DogPileTask.addRetryJob(job)
-            #retryQueue.addJob( job )
+            #the queue add is done within writeClusterJobResult
 
         #TODO: signal callback work is finished
 
     elif status == dispy.DispyJob.Terminated or status == dispy.DispyJob.Cancelled or status == dispy.DispyJob.Abandoned:
-        #DogPileTask._getLogger.warn('job failed for %s failed: %s' % (job.id, job.exception))
+        logger.error("job failed for %s failed: %s" % (job.id, job.exception))
 
-        #DogPileTask._clusterStatusCallbackLog("job failed for %s failed: %s" % (job.id, job.exception))
-        print("job failed for %s failed: %s" % (job.id, job.exception))
-
-        #TODO: signal callback work is finished
-
-        #TODO: remove id from result mapping?
+        #TODO: here it's possible a node doesn't have a required library or module installed. resubmit a set number of times
+        #expose a function in DogPileTask to allow direct adding of jobs to retry queue
 
     elif status == dispy.DispyNode.Initialized:
-        #DogPileTask._clusterStatusCallbackLog("node %s with %s CPUs available" % (node.ip_addr, node.avail_cpus))
-        print ("node %s with %s CPUs available" % (node.ip_addr, node.avail_cpus))
+        logger.debug ("node %s with %s CPUs available" % (node.ip_addr, node.avail_cpus))
     # elif status == dispy.DispyNode.Created:
-    #     print("created job with id %s" % job.id)
+    #     logger.debug("created job with id %s" % job.id)
     # elif status == dispy.DispyNode.Running:
     #     #do nothing. running is a good thing
     #     pass
     else:  # ignore other status messages
         #DogPileTask._clusterStatusCallbackLog("Unexpected job status: %d" % status )
-        #print("Unexpected job status: %d" % status )
+        #logger.warn("Unexpected job status: %d" % status )
         #if we're not logging warnings above
         pass
 
@@ -103,6 +94,10 @@ class GrayScaleImageTask(DogPileTask):
                 exit(1)
         else:
             logger.debug("Using existing output directory")
+         
+         
+        #TODO: read from config
+        self.enableHttpServer = True
          
         #the collection of image files that we'll operate on
         self.sourceImageFiles = []
@@ -134,11 +129,9 @@ class GrayScaleImageTask(DogPileTask):
         #do we have a valid cluster?
         if(super().getClusterFactory() == None):
             raise Exception("Cluster was not build successfully. Bailing")
-            
-        #TODO: read from config
-        self.enableHttpServer = True
         
-        super().startDispyHttpServer()
+        if(self.enableHttpServer == True):
+            super().startDispyHttpServer()
             
         ################################################
         #for each file in sourceImageFiles, create jobs and submit to cluster
@@ -181,15 +174,12 @@ class GrayScaleImageTask(DogPileTask):
             self.workloadImages.append(sourceImage)
             
           
-        print("entering wait loop")
+        logger.info("All jobs submitted")
         
-        
-        #TODO: possibly move to superclass so we're not worrying about dispy internals
-        ################################################
         #wait for cluster operation to complete
         #cluster.wait does not wait for callbacks to finish
         
-        super().waitForCompletion(10)
+        super().waitForCompletion(4)
 
         ################################################
         
@@ -211,14 +201,7 @@ class GrayScaleImageTask(DogPileTask):
         
 ################
 
-    #TODO: make generic and push to superclass. support overloading or callback supplication
-
-
-
-
     def getClusterJobResultByJobId(self, id):
-        
-        print("Executing Subtask.getClusterJobResultByJobId")
         
         result = None
 
@@ -236,13 +219,10 @@ def main(args):
         print("Usage: grayscale_image.py conf_file file1 file2 file3...")
         exit(1);
 
-    
-    #global so the callback can reference
+    #global so the cluster status callback can reference
     global grayscaleImageTask 
     grayscaleImageTask = GrayScaleImageTask(args[1])
-    
-    #dogPileTask.setWriteNodeResultCallback(writeNodeResult)
-    
+        
     for imageFile in args[2:]:
         grayscaleImageTask.addImageFile(imageFile)
     
@@ -254,7 +234,7 @@ def main(args):
     #blocks    
     grayscaleImageTask.start()
     
-    print ("STOPPING")
+    logger.info("Work completed. Shutting down.")
     
     #shutdown
     grayscaleImageTask.stop()

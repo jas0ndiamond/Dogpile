@@ -15,9 +15,9 @@ class TransformableImage(ClusterJobResult):
         
         super().__init__()
         
-        #logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
+        #set the log level explicitly. effective log level may not be available
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
+        self.logger.setLevel( logging.INFO )
 
         self.imageFile = imageFile
 

@@ -4,30 +4,25 @@ import logging
 
 from threading import Thread
 
-
 class ResultRetryQueue:
     def __init__(self, retryCallback):
-        #TODO: remove
-        print("ResultRetryQueue constructor")
-        
-        
+       
+        #set the log level explicitly. effective log level may not be available
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
-        #self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel( logging.INFO  )
         
         self.logger.info("ResultRetryQueue initializing")
-        print("ResultRetryQueue constructor2")
+        
+        #TODO: remove
+        print("ResultRetryQueue constructor")
         
         self.retryCallback = retryCallback
 
         self.retryQueue = queue.Queue()
         self.failedQueue = queue.Queue()
         
-
         self.retryQueueSleep = 1
 
-
-        
         self.runThread = None
         
         self.logger.info("ResultRetryQueue initialized")
@@ -75,17 +70,12 @@ class ResultRetryQueue:
         while(self.running):
             self.logger.debug('Result Retry cycle starting.' )
             
-            print("retry derp: %d" % self.retryQueue.qsize())
-
             #run the retryCallback on everything in the retry queue
             while(self.retryQueue.qsize() > 0):
                 self.logger.debug("Entering retry cycle with queue size: %d" %  self.retryQueue.qsize() )
 
                 #retry each item in the queue once
                 retryJob = self.retryQueue.get()
-
-
-                
 
                 #returns true if the retry was successful or false if not successful
                 if(self.retryCallback(retryJob)):
@@ -107,6 +97,4 @@ class ResultRetryQueue:
         #attempt to clear the retry queue
         self.finalRetry()
 
-
         self.logger.info('Retry Queue thread exiting' )
-

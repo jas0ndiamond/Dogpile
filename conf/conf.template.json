@@ -2,7 +2,7 @@
 	"nodes": ["192.168.x.1", "192.168.x.2", "192.168.x.3", "192.168.x.4"],
 	"secret": "my_node_secret",
 	"dependencies": [
-		"/path/to/ImageTransformer/src/Grayscaler.py"
+		"/path/to/Dogpile/src/Grayscaler.py"
 	],
 	"loglevel": "info",
 	"dispy_loglevel": "info",

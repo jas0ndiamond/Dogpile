@@ -8,7 +8,6 @@ from PIL import Image
 from ClusterJobResult import ClusterJobResult
 
 #TODO: generic container for an entity to be handled by DogPileTasks
-#class TransformableImage(ClusterEntity):
 class TransformableImage(ClusterJobResult):
 
     def __init__(self, imageFile, outputDir):

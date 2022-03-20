@@ -22,7 +22,6 @@ logFile = "run.log"
 logging.basicConfig(filename=logFile, format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
 logger = logging.getLogger(__name__)
 
-#logger.setLevel( logging.getLogger().getEffectiveLevel() )
 logger.setLevel( logging.INFO )
 
 #simple generic implementation. listen for job statuses, add to retry queue if there's no result mapping yet
@@ -158,7 +157,8 @@ class GrayScaleImageTask(DogPileTask):
                 #the job id after submitting it to the cluster, and sometimes the 
                 #result arrives in the cluster status callback before the 
                 #result binding below
-                newJob = super().submitClusterJob( Grayscaler( row ) )
+                #newJob = super().submitClusterJob( Grayscaler( row ) )
+                newJob = self.submitClusterJob( Grayscaler( row ) )
                 
                 if(newJob):
                     logger.debug("Binding job id %s to row num %d" % (newJob.id, rowNum))
@@ -216,7 +216,7 @@ class GrayScaleImageTask(DogPileTask):
 def main(args):
 
     if(len(args) < 3):
-        print("Usage: grayscale_image.py conf_file file1 file2 file3...")
+        print("Usage: dogpile_task_grayscale_image.py conf_file file1 file2 file3...")
         exit(1);
 
     #global so the cluster status callback can reference

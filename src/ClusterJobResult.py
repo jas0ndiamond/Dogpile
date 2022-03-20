@@ -11,7 +11,8 @@ class ClusterJobResult:
         
         self.resultData = {}
         
-        self.logger.info("ClusterJobResult built")
+        if(self.logger.isEnabledFor(logging.DEBUG)):
+            self.logger.info("ClusterJobResult built")
         
         pass
         

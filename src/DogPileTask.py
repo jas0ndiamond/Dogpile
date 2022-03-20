@@ -22,10 +22,10 @@ dispy.MsgTimeout = 1200
 
 class DogPileTask:
     
-    def __init__(self, confFile):
+    def __init__(self, confFile, enableRetryQueue=True):
         
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel( logging.getLogger().getEffectiveLevel() )
+        self.logger.setLevel( logging.DEBUG )
         
         self.conf = Config(confFile)
 
@@ -39,9 +39,11 @@ class DogPileTask:
         
         self.logger.info("Built ClusterFactory with nodes: %s" % self.clusterFactory.getConfig().get_nodes())
         
-        self.retryQueue = ResultRetryQueue(retryCallback=self.writeClusterJobResult)
-        self.retryQueue.setRetrySleep(5)
-        self.retryQueue.start()
+        self.retryQueue = None
+        if(enableRetryQueue):
+            self.retryQueue = ResultRetryQueue(retryCallback=self.writeClusterJobResult)
+            self.retryQueue.setRetrySleep(5)
+            self.retryQueue.start()           
         
         self.dispyHttpServer = None
         self.cluster = None
@@ -86,8 +88,6 @@ class DogPileTask:
 
         return retval
         
-        pass
-        
     #subclass implements because they own the data structure
     def getClusterJobResultByJobId(self, id):
         raise Exception("DogPileTask.getClusterJobResultByJobId() not implemented in subclass")
@@ -103,17 +103,23 @@ class DogPileTask:
     def stop(self):
         self.logger.info("Stopping DogPileTask")
         
+        #signal the waitForCompletion loop
+        self.quit = True
+        
+        self.logger.info("Stopping result retry queue")
         #signal the retry queue to terminate
         if(self.retryQueue):
             self.retryQueue.stop()
         
+        self.logger.info("Stopping dispy http server")
         #shutdown the dispy http server
         if(self.dispyHttpServer):
             self.dispyHttpServer.shutdown()
         
+        self.logger.info("Stopping dispy cluster")
         #shut down the dispy cluster
         if(self.cluster):
-            self.cluster.close()
+            self.cluster.close(10, terminate=True)
 
         self.logger.info("DogPileTask stop completed")
     
@@ -141,6 +147,10 @@ class DogPileTask:
     
     def waitForCompletion(self, interval):
         self.quit = False
-        while( self.quit != True and self.cluster.wait(interval) != True ):
+        
+        #while( self.quit != True and self.cluster.wait(interval) != True ):
+        while( self.quit != True ):
             self.cluster.print_status()
- 
+            time.sleep(5)           
+            
+        self.logger.info("DogPileTask waitForCompletion returning")

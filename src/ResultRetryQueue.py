@@ -13,9 +13,6 @@ class ResultRetryQueue:
         
         self.logger.info("ResultRetryQueue initializing")
         
-        #TODO: remove
-        print("ResultRetryQueue constructor")
-        
         self.retryCallback = retryCallback
 
         self.retryQueue = queue.Queue()
@@ -45,6 +42,8 @@ class ResultRetryQueue:
         #TODO: inventory pending retries
 
     def addJob(self, job):
+
+        #if we're not seeing this function called when it should be, likely the queue thread was stopped incorrectly.
 
         self.logger.debug("Adding new job to retry queue.")
 

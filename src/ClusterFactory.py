@@ -22,7 +22,7 @@ class ClusterFactory:
     def getConfig(self):
         return self.config
 
-    def buildCluster(self, runFunction, status_callback=None):
+    def buildCluster(self, runFunction, cluster_status_callback=None, job_status_callback=None):
 
         #if the local machine is a node, then it has to be specified by ip address. it doesn't seem to work with hostname or fqdn
         cluster_nodes = self.config.get_nodes()
@@ -37,7 +37,8 @@ class ClusterFactory:
         loglevel_dispy = self.config.get_disy_loglevel()
 
         return dispy.JobCluster(runFunction,
-            cluster_status=status_callback,
+            cluster_status=cluster_status_callback,
+            job_status=job_status_callback,
             nodes=cluster_nodes,
             depends=cluster_dependencies,
             loglevel=loglevel_dispy,

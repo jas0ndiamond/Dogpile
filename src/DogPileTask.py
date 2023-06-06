@@ -64,12 +64,10 @@ class DogPileTask:
     
     def writeClusterJobResult(self, job):
         
-        #handle the retry queue add here?
-        #retry queue will just recall this later
+        #handle the retry queue add here
+        #retry queue will just re-call this later
         
         #call subclass function that's required to be overwridden?
-        
-        #raise Exception("DogPileTask.writeClusterJobResult() not implemented in subclass")
         
         clusterJobResult = self.getClusterJobResultByJobId(job.id)
         retval = False
@@ -79,7 +77,8 @@ class DogPileTask:
             
             clusterJobResult.writeResult(job.id, job.result)
 
-            #TODO: remove id from result mapping? race condition?
+            # remove result mapping
+            self.removeResultMapping(job.id)
 
             retval = True
         else:
@@ -88,9 +87,13 @@ class DogPileTask:
 
         return retval
         
-    #subclass implements because they own the data structure
+    # subclass implements because they own the data structure
+    # one id should map to one result. no intermediate results
     def getClusterJobResultByJobId(self, id):
         raise Exception("DogPileTask.getClusterJobResultByJobId() not implemented in subclass")
+        
+    def removeResultMapping(self, id):
+        raise Exception("DogpileTask.removeResultMapping() not implemented in subclass")
         
     def initializeCluster(self):
         #implemented like this in subclass vvvv
@@ -123,6 +126,10 @@ class DogPileTask:
 
         self.logger.info("DogPileTask stop completed")
     
+    #how does the subclass task indicate it's finished submitting jobs and processing results?
+    def isFinished(self):
+        raise Exception("DogPileTask.isFinished() not implemented in subclass")
+    
     #submit our job to the dispy cluster
     def submitClusterJob(self, job):
         
@@ -135,21 +142,21 @@ class DogPileTask:
     def _setCluster(self, cluster):
         self.cluster = cluster
         
-    #def _clusterStatusCallbackLog(message):
-    #    #self.logger.debug(message)
-    #    pass
-        
     def addRetryJob(self, job):
         self.retryQueue.addJob(job)
     
     #def defaultWriteNodeResultCallback(job):
     #    raise Exception("writeNodeResultCallback not set by subclass")
     
-    def waitForCompletion(self, interval):
+    def waitForWorkloadCompletion(self, interval=5):
         self.quit = False
         
+        #cluster.wait does not wait for callbacks to finish
+        #namely after all jobs are submitted and finished but not all results are handled.
+        #does not wait for callbacks to finish executing
+        
         #while( self.quit != True and self.cluster.wait(interval) != True ):
-        while( self.quit != True ):
+        while( self.quit != True and self.isFinished() != True ):
             self.cluster.print_status()
             time.sleep(5)           
             

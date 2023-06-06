@@ -24,5 +24,8 @@ class ClusterJobResult:
 
         return (self.jobIds.get(job_id, None) != None)
 
+    def removeResultMapping(self, job_id):
+        self.jobIds.pop(job_id)
+
     def toString(self):
         raise Exception("ClusterJobResult.toString() not implemented in subclass")

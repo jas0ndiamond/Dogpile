@@ -72,8 +72,7 @@ def clusterStatusCallback(status, node, job):
         
         #are we done?
         #yes => signal that we are done, cancel remaining or in-progress work
-        #no => have we seen it before?
-        #no again => add new cluster job for it
+        #no => add new cluster job for it
         
         #job.result is an array of ChessBoard
         for expandedBoard in job.result:
@@ -90,6 +89,8 @@ def clusterStatusCallback(status, node, job):
                 ktTaskDone = True
                 
             else:                
+                #TODO: add to queue rather than just submit
+                
                 #submit job for new board
                 #don't have to worry about rexpanding a board we've already seen. KnightsTour.expandBoard checks for previous turns
                 knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )

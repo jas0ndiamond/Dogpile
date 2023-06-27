@@ -43,11 +43,10 @@ def jobStatusCallback(job):
 
         #a block is finished transforming
 
-
         #lookup resultcontainer for job.id and attempt to write to it
 
         #"self" is problematic here *******************
-        #this is effectively a static method, and we can't access the return value
+        #since this is a callback invoked from dispy, and we can't access the return value
         #originally implementation worked with the retry queue as global, and the writeResult function also as global
 
         #search all images for image.hasJobId
@@ -56,31 +55,30 @@ def jobStatusCallback(job):
         else:
             pass
             #the queue add is done within writeClusterJobResult
-
-        #TODO: signal callback work is finished
         
+        #signal job itself is finished
         grayscaleImageTask.countJobCompleted()
         
-
+        #TODO: signal callback work is finished
+        #could push a job id onto a callback_running collection and remove it when the callback returns
     elif job.status == dispy.DispyJob.Terminated or job.status == dispy.DispyJob.Cancelled or job.status == dispy.DispyJob.Abandoned:
         logger.error("job failed for %s failed: %s" % (job.id, job.exception))
 
         #TODO: here it's possible a node doesn't have a required library or module installed. 
         #resubmits need to be careful and enforce a maximum retry count for a job
         
+        #possible a failure should abort the dispy work distribution
+        
         #expose a function in DogPileTask to allow direct adding of jobs to retry queue
         #either way the job param to the callback is technically done
         
         grayscaleImageTask.countJobFailed()
-        
-        
     else:  # don't need explicit handling of other status messages
         logger.warn("Unexpected job status: %d" % job.status )
         #if we're not logging warnings above
         pass
-        
-        
-# TODO: move into DogPileTask and do not require override
+
+#simple generic implementation. basic reporting about nodes going on/offline
 def clusterStatusCallback(status, node, job):
 
     logger.debug("=============cluster_status_cb===========")
@@ -160,7 +158,7 @@ class GrayScaleImageTask(DogPileTask):
             super().startDispyHttpServer()
             
         ################################################
-        #for each file in sourceImageFiles, create jobs and submit to cluster
+        #for each file in sourceImageFiles, create jobs for the job manager
             
         # TODO: override this so different grayscale image tasks can generate jobs in their own way
         # by row
@@ -202,10 +200,15 @@ class GrayScaleImageTask(DogPileTask):
                 else:
                     logger.error("Failed creating job")
                 
-                #TODO: fail out gracefully. signal not ready. do not want partial set of jobs 
+                #TODO: fail out gracefully. signal not ready. do not want partial set of jobs submitted to cluster
             
             self.workloadImages.append(sourceImage)
             
+            
+        #######################
+        # submit jobs from job manager
+          
+        
           
         logger.info("All jobs submitted: %d" % self.jobsSubmitted)
 

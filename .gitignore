@@ -13,5 +13,10 @@ scripts/
 conf/conf.d*.json
 
 todo.txt
+notes.txt
+
+testinput/
 
 *.log
+
+output*

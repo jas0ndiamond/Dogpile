@@ -109,6 +109,9 @@ class DogPileTask:
         #signal the waitForCompletion loop
         self.quit = True
         
+        #signal nodes to close with cluster.close_node?
+        
+        
         self.logger.info("Stopping result retry queue")
         #signal the retry queue to terminate
         if(self.retryQueue):
@@ -136,6 +139,10 @@ class DogPileTask:
         if(self.cluster == None):
             raise Exception("Dispy cluster not initialized. Cannot submit job.")
         
+        if(self.quit):
+            self.logger.warn("Quitting- skipping cluster job submission")
+            return None
+        
         return self.cluster.submit(job)
     
     #called by subclass once a cluster is built with node function and status callback
@@ -147,6 +154,12 @@ class DogPileTask:
     
     #def defaultWriteNodeResultCallback(job):
     #    raise Exception("writeNodeResultCallback not set by subclass")
+    
+    def getPendingJobCount(self):
+        return self.cluster.status().jobs_pending
+        
+    def getDispyWorkerQSize(self):
+        return self.cluster._cluster.worker_Q.qsize()
     
     def waitForWorkloadCompletion(self, interval=5):
         self.quit = False

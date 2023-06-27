@@ -134,6 +134,9 @@ class TestChessBoard(unittest.TestCase):
         self.assertEqual(childBoard.getParentState(), board.getBoardState())
         
     def test_known_boards(self):
+        
+        # not really a test, more like a sanity check
+        
         board1 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0"
         board2 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0"
         board3 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0"
@@ -167,6 +170,46 @@ class TestChessBoard(unittest.TestCase):
         
         self.assertFalse( boardNew in knownBoards )
         
+    def test_hash_code(self):
+        boardState1 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0"
+        boardState2 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0"
+        boardState3 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0"
+        boardState4 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0"
+        boardState5 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        boardState6 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        boardState7 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        boardState8 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        
+        xdim = ydim = ChessBoard.STANDARD_BOARD_DIM
+        xdim2 = ydim2 = 4
+        
+        board1 = ChessBoard(xdim, ydim)
+        board1.setBoardStateFromString(boardState1)
+        board1.setTurnCount(4)
+        
+        #same state as board1, with a different turn count
+        board2 = ChessBoard(xdim, ydim)
+        board2.setBoardStateFromString(boardState1)
+        board2.setTurnCount(5)
+        
+        #same turn count as board 1, different board state
+        board3 = ChessBoard(xdim, ydim)
+        board3.setBoardStateFromString(boardState3)
+        board3.setTurnCount(4)
+        
+        #same turn count as board1, similar board state but different dimensions
+        #not a valid board but it shouldn't matter here
+        board4 = ChessBoard(xdim2, ydim2)
+        board4.setBoardStateFromString(boardState4)
+        board4.setTurnCount(4)        
+        
+        # 2 calls should return the same result
+        self.assertEqual( board1.getHashCode(), board1.getHashCode() )
+        
+        self.assertNotEqual( board1.getHashCode(), board2.getHashCode() )
+        self.assertNotEqual( board1.getHashCode(), board3.getHashCode() )
+        self.assertNotEqual( board1.getHashCode(), board4.getHashCode() )
+                
 if __name__ == '__main__':
     unittest.main()
 

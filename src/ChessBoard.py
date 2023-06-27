@@ -1,4 +1,6 @@
 import csv
+import json
+import hashlib
 
 from ClusterJobResult import ClusterJobResult
 
@@ -25,8 +27,9 @@ class ChessBoard(ClusterJobResult):
         
     def __init__(self, xdim, ydim, turnCount=0):
         super().__init__()
-        self.xdim = xdim
-        self.ydim = ydim
+        
+        self.setXDim(xdim)
+        self.setYDim(ydim)
         
         self.boardState = [[ChessBoard.BLANK for x in range(xdim)] for y in range(ydim)]
         
@@ -39,6 +42,15 @@ class ChessBoard(ClusterJobResult):
         
     def getYDim(self):
         return self.ydim
+        
+    ##############
+    # must be set coherently with board state
+    def setXDim(self, dim):
+        self.xdim = dim
+        
+    def setYDim(self, dim):
+        self.ydim = dim
+    ###############
         
     def setTurnCount(self, turnCount):
         self.turnCount = turnCount
@@ -118,6 +130,44 @@ class ChessBoard(ClusterJobResult):
         
         return newBoard
         
+    # possibly move these to ClusterJobResult and require override
+    # easy way to determine board uniqueness
+    def getHashCode(self):
+    
+        #call hexdigest otherwise the result is a undefined memory address for string comparisons
+    
+        return hashlib.md5(self.toJson().encode()).hexdigest()
+        
+    def fromJson(self, jsonStr):
+        pass
+        
+    def toJson(self):
+        
+        #TODO find a way to incorporate parent state
+        
+        # skip hashcode as toJson calls this function
+        return """
+        {
+            "boardState": "%s",
+            "turnCount:" %d,
+            "xDim": %d,
+            "yDim": %d
+        }
+        """ % (
+            self.getBoardStateStr(),
+            self.getTurnCount(),
+            self.getXDim(),
+            self.getYDim()
+        )
+        
+    def toDict(self):
+        return {
+            "hashCode": self.getHashCode(),
+            "boardState": self.getBoardStateStr(),
+            "turnCount": self.getTurnCount(),
+            "xDim": self.getXDim(),
+            "yDim": self.getYDim(),
+        }
         
     def dump(self):
         #print( "\nI am a Chess Board %d x %d\n%s" % (self.xdim, self.ydim, self.getBoardStateStr()))
@@ -135,3 +185,20 @@ class ChessBoard(ClusterJobResult):
             state += row
             
         return ("----------------------------------%s\n----------------------------------\n" % state )
+        
+    
+    
+    @classmethod
+    def serializeFromDict(cls, other):
+    
+        #TODO: require override?
+        
+        # create a new board copied from 'other'
+        
+        # used in serialization of job objects by job managers that store job object data in various data structures
+        
+        newBoard = ChessBoard( other["xDim"], other["yDim"], other[ 'turnCount' ])
+        
+        newBoard.setBoardStateFromString( other['boardState'] )
+        
+        return newBoard

@@ -42,6 +42,7 @@ class KnightsTour(object):
             #TODO: fail gracefully if not found
             #could do this in the constructor but we want the work for 
             #this done on the cluster node
+            #stores result in self.knightPosX and self.knightPosY
             self.findKnightPostion()
             
             #major parts of a knight's move, +/- 2 in x,y directions
@@ -58,7 +59,7 @@ class KnightsTour(object):
             moveRightMinor = self.knightPosX + 1
             moveDownMinor = self.knightPosY + 1
             
-            #bad case of arrow pattern but it makes testing and future logging easier
+            #bad-ish case of arrow pattern but it makes testing and future logging easier
             
             #left 2
             if(moveLeftMajor >= self.xdimMin):
@@ -115,7 +116,7 @@ class KnightsTour(object):
         finally:
             pass
 
-        self.logger.info("Expansion produced %d new boards" % len(expandedBoards) )
+        self.logger.debug("Expansion produced %d new boards" % len(expandedBoards) )
 
         return expandedBoards
 
@@ -131,7 +132,10 @@ class KnightsTour(object):
         self.logger.info("Found knight at %d,%d" % (self.knightPosX, self.knightPosY) )
     
     def getKnightPosition(self):
-        #call findKnightPostion before invoking
+        #useful externally
+        
+        #TODO: call findKnightPostion if values are not defined
+        
         return (self.knightPosX, self.knightPosY)
     
     def _canProgress(self, targetx, targety):

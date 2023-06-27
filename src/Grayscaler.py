@@ -54,9 +54,6 @@ class Grayscaler(object):
 
         return ( avg, avg, avg )
 
-    # def setOutputDir(self, dir):
-    #     self.outputDir = dir
-
     def grayscaleImage(self):
         #from Grayscaler import Grayscaler
         from PIL import Image

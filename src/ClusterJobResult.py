@@ -14,8 +14,6 @@ class ClusterJobResult:
         if(self.logger.isEnabledFor(logging.DEBUG)):
             self.logger.info("ClusterJobResult built")
         
-        pass
-        
     #store the result of the cluster work
     def writeResult(self, job_id, data):
         raise Exception("ClusterJobResult.writeResult() not implemented in subclass")

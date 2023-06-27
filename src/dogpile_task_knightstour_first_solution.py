@@ -4,6 +4,9 @@ import logging
 import time
 import dispy
 import signal
+import timeit
+
+from threading import Thread
 
 #################################
 #knights tour that stops at the first solution it finds
@@ -22,6 +25,8 @@ from DogPileTask import DogPileTask
 from ChessBoard import ChessBoard
 from KnightsTour import KnightsTour
 
+from MongoDBJobManager import MongoDBJobManager
+
 logFile = "run.log"
 
 #init logging outside of constructor so constructed objects can access
@@ -30,42 +35,51 @@ logger = logging.getLogger(__name__)
 
 logger.setLevel( logging.DEBUG )
 
-#implementation where a result can generate new cluster jobs, and cancel in-progress work if we're done
-def clusterStatusCallback(status, node, job):
 
-    #"self" is problematic in this function
-    #this is effectively a static method, and we can't access the return value
-    #originally implementation worked with the retry queue as global, and the writeResult function also as global
+#TODO: add to config file
+#connect db
+DB_NAME = "dispy_work"
+DB_USER = "dispy"
+DB_PASS = "dispy_pass"
+DB_HOST = "jupiter"
+DB_PORT = 27017
+ID_LEN = 8
+DB_JOB_COLLECTION = "KT-BREADTH-FIRST_" + str(int(time.time()))
 
-    # Created = 5
-    # Running = 6
-    # ProvisionalResult = 7
-    # Cancelled = 8
-    # Terminated = 9
-    # Abandoned = 10
-    # Finished = 11
+# worker_Q size threshold where we request a lot of work if worker_Q size is lower
+NEW_JOB_RETRIEVAL_LOWER_THRESHOLD = 10 * 1000
 
-    #if(logger.isEnabledFor(logging.DEBUG)):
-    #    logger.debug("=============cluster_status_cb===========")
+# limit of worker_Q size. TODO: rename. beyond this value no new work will be retrieved
+NEW_JOB_RETRIEVAL_UPPER_THRESHOLD = 500 * 1000
 
-    global ktTaskDone
+#TODO: large and small amounts. has to be tuned to job expansion rate. would be nice if this tuned itself
+NEW_JOB_RETRIEVAL_AMOUNT_LARGE  = 50 * 1000
+NEW_JOB_RETRIEVAL_AMOUNT_SMALL = 200
 
-    if(ktTaskDone):
-        logger.debug("cluster status callback invoked, but task was done")
-        return
+NEW_WORK_POLL_SLEEP = 20 #seconds
 
+def jobStatusCallback(job):
+    
     if(job == None):
         logger.warn("Received a null job: %s" % job)
         return
-
-    if status == dispy.DispyJob.Finished:
         
+    #quit if we're done or stopped. nodes will keep sending results
+    global ktTaskDone
+    if(ktTaskDone == True):
+        logger.info("job status callback function invoked, but task was done. Returning...")
+        return
+        
+        
+    # TODO: check if we're quitting or otherwise done
+        
+    if job.status == dispy.DispyJob.Finished:
+    
         if(job.result == None):
             logger.warning("Received a null job result for job id: %s" % job.id)
             return
         
         if(logger.isEnabledFor(logging.DEBUG)):
-            #TODO: better log statement for board state and turn count
             logger.debug('job finished for %s: %s' % (job.id, job.result))
 
         #at this point we've received a result board, assume coherent
@@ -73,6 +87,13 @@ def clusterStatusCallback(status, node, job):
         #are we done?
         #yes => signal that we are done, cancel remaining or in-progress work
         #no => add new cluster job for it
+        
+        #########
+        #TODO remove array slice below
+        #########
+        
+        if logger.isEnabledFor(logging.DEBUG):
+            start_time = timeit.default_timer()
         
         #job.result is an array of ChessBoard
         for expandedBoard in job.result:
@@ -82,61 +103,95 @@ def clusterStatusCallback(status, node, job):
             
             elif(isTourComplete(expandedBoard)):
                 
-                logger.info("Tour complete:\n%s\n" % expandedBoard.dump())
+                logger.info("*********Tour complete:\n%s\n" % expandedBoard.dump())
                 #write final result
                 #cancel in-progress work
                 
+                #global ktTaskDone
                 ktTaskDone = True
                 
+                global ktFirstSolutionBoard
+                ktFirstSolutionBoard = expandedBoard.dump()
+                
             else:                
-                #TODO: add to queue rather than just submit
                 
                 #submit job for new board
                 #don't have to worry about rexpanding a board we've already seen. KnightsTour.expandBoard checks for previous turns
-                knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )
+                #knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )
+                knightsTourTask.submitNewJob( expandedBoard )
                 
-                logger.debug("Expanding board:\n%s\n" % expandedBoard.dump())
+                if(logger.isEnabledFor(logging.DEBUG)):
+                    logger.debug("Expanding board:\n%s\n" % expandedBoard.dump())
                 
                 #adds to record of known boards as side effect to avoid copying board state more than once
-#                if(checkIfNewBoard(expandedBoard)):
-#                    
-#                    if(logger.isEnabledFor(logging.DEBUG)):
-#                        logger.debug("Found new board:\n%s\n" % expandedBoard.dump())
-#                    
-#                    #submit new job
-#                    knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )
-#                else:
-#                    #ignore - we don't need to expand the board again
-#                    if(logger.isEnabledFor(logging.DEBUG)):
-#                        logger.debug("Skipping expansion of old board:\n%s\n" % expandedBoard.dump())
+    #                if(checkIfNewBoard(expandedBoard)):
+    #                    
+    #                    if(logger.isEnabledFor(logging.DEBUG)):
+    #                        logger.debug("Found new board:\n%s\n" % expandedBoard.dump())
+    #                    
+    #                    #submit new job
+    #                    knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )
+    #                else:
+    #                    #ignore - we don't need to expand the board again
+    #                    if(logger.isEnabledFor(logging.DEBUG)):
+    #                        logger.debug("Skipping expansion of old board:\n%s\n" % expandedBoard.dump())
 
-            
-        #TODO: signal callback work is finished
+        
+        
+        if logger.isEnabledFor(logging.DEBUG):
+            elapsed = timeit.default_timer() - start_time
+            logger.debug("Submission of expanded boards completed in time: %f ms" % (elapsed * 1000) )
+        
+        #TODO: signal callback work is finished - different from counting 
 
-    elif status == dispy.DispyJob.Terminated or status == dispy.DispyJob.Cancelled or status == dispy.DispyJob.Abandoned:
+    elif job.status == dispy.DispyJob.Terminated or job.status == dispy.DispyJob.Cancelled or job.status == dispy.DispyJob.Abandoned:
         logger.error("job failed for %s failed: %s" % (job.id, job.exception))
 
         #TODO: signal callback work is finished
 
         #TODO: remove id from result mapping?
-
-    elif status == dispy.DispyNode.Initialized:
-        logger.debug ("node %s with %s CPUs available" % (node.ip_addr, node.avail_cpus))
-    # elif status == dispy.DispyNode.Created:
-    #     print("created job with id %s" % job.id)
-    # elif status == dispy.DispyNode.Running:
-    #     #do nothing. running is a good thing
-    #     pass
-    else:  # ignore other status messages
+    else:  # don't need explicit handling of other status messages
+        logger.warn("Unexpected job status: %d" % job.status )
         #if we're not logging warnings above
         pass
         
+    if(logger.isEnabledFor(logging.DEBUG)):
+        logger.debug("=====dispy worker_Q size %d =====" % knightsTourTask.getDispyWorkerQSize())
+        logger.debug("=====jobStatusCallback returning=====")
+
+#implementation where a result can generate new cluster jobs, and cancel in-progress work if we're done
+def clusterStatusCallback(status, node, job):
+
+    #"self" is problematic in this function
+    #this is effectively a static method, and we can't access the return value
+    #originally implementation worked with the retry queue as global, and the writeResult function also as global
+
+    #if(logger.isEnabledFor(logging.DEBUG)):
+    #    logger.debug("=============cluster_status_cb===========")
+
+    global ktTaskDone
+
+    if(ktTaskDone):
+        logger.debug("cluster status callback function invoked, but task was done. Returning...")
+        return
+
+    if status == dispy.DispyNode.Initialized:
+        logger.debug ("node %s with %s CPUs available" % (node.ip_addr, node.avail_cpus))
+    elif status == dispy.DispyNode.Closed:
+        logger.debug ("node %s closing" % node.ip_addr)
+    elif status == dispy.DispyJob.Created or status == dispy.DispyJob.Running or status == dispy.DispyJob.Finished:
+        #inherited from job statuses. normal operation. ignore
+        pass
+    else: 
+        logger.warn("Unexpected node status: %d" % status )
+        
+#TODO: move utility methods somewhere reusable?
 def isTourComplete(board):
     return board.getBoardStateStr().find(ChessBoard.BLANK) == -1
     
 def signal_handler(sig, frame):
-    print('SIGINT Caught, shutting down')
-    logger.info("SIGINT Caught, shutting down")
+    print('SIGINT Caught, shutting down. Nodes may take a while to dump their pending work.')
+    logger.info("SIGINT Caught, shutting down. Nodes may take a while to dump their pending work.")
     
     global ktTaskDone
     ktTaskDone = True
@@ -171,6 +226,9 @@ class KnightsTourTask(DogPileTask):
         self.startx = startx
         self.starty = starty
       
+        self.newWorkPollingThread = None
+        self.pollingForNewWork = True
+      
     #overrides superclass method
     def initializeCluster(self):
         logger.info("initializing cluster for knights tour")
@@ -181,14 +239,18 @@ class KnightsTourTask(DogPileTask):
         #seeing issues trying to combine this statement with the clusterFactory retrieval abo
         #super().clusterStatusCallback is generic enough for most cases, but subclasses may want otherwise 
         
-        taskCluster = clusterFactory.buildCluster( KnightsTour.expandBoard, clusterStatusCallback )
+        super()._setCluster( clusterFactory.buildCluster( KnightsTour.expandBoard, clusterStatusCallback, jobStatusCallback ) )
         
         #TODO: reallocate nodes in case we previously had a sloppy shutdown?
         
-        super()._setCluster( taskCluster )
+        self.clusterJobDB = MongoDBJobManager(DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME, DB_JOB_COLLECTION, ChessBoard.serializeFromDict)
+        
+        self.newWorkPollingThread = Thread(target=self._pollForNewWork)
         
     def start(self):
-        #blocks
+        #TODO: check initializeCluster was called
+        
+        #does not block
         logger.info("Starting DogPile task")
         
         #do we have a valid cluster?
@@ -210,20 +272,103 @@ class KnightsTourTask(DogPileTask):
         
         logger.debug("Starting board:\n%s" % startBoard.dump())
         
-        self.submitClusterJob( KnightsTour( startBoard.getBoardStateStr(), startBoard.getXDim(), startBoard.getYDim() ) )        
+        self.submitNewJob( startBoard )
+        #self.submitClusterJob( KnightsTour( startBoard.getBoardStateStr(), startBoard.getXDim(), startBoard.getYDim() ) )       
         
-        #sleep for a bit to let expansions arrive, otherwise the waitFor will not block       
-        super().waitForCompletion(10)
+        #start job polling thread 
+        self.pollingForNewWork = True
+        self.newWorkPollingThread.start()
 
-        ################################################
+    #states are stored in the database, and DogpileTasks have states loaded into them, and are submitted to the cluster for workload execution
+    def submitNewJob(self, newState):
+        #TODO type check ChessBoard object
         
-        logger.info("Job queue exhausted. Beginning shutdown...")
+        logger.info("Adding new job")
+
+        #self.clusterJobDB.addJob(newState)
+        self.clusterJobDB.addToIntake(newState)
+
 
     def stop(self):
         
         logger.info("Stopping dogpile knightstour task")
 
         super().stop()
+        
+        self.pollingForNewWork = False
+        
+        if(self.clusterJobDB != None):
+            #TODO: recovery based on what's left in the database and the application state?
+            self.clusterJobDB.close()
+            
+    #function to monitor cluster-submitted jobs and retrieve new work
+    #if we run out of work, this loop must be stopped or paused externally
+    def _pollForNewWork(self):
+        
+        # pending cluster work is in the remote db
+        # each work job generates a bunch of callback invocations that get enqueued into dispy's worker_Q
+        # have to manage size of worker_Q or else memory will get exhausted
+        
+        while(self.pollingForNewWork == True):
+            
+            #while(self.pollingPaused == True):
+            #    time.sleep(30)
+            
+            #if(super().getPendingJobCount() < NEW_JOB_RETRIEVAL_THRESHOLD):
+            if(super().getDispyWorkerQSize() < NEW_JOB_RETRIEVAL_LOWER_THRESHOLD):
+                
+                # if the worker_Q has shrunk, release more work
+                
+                self.logger.info("Pending job count beneath threshold. Retrieving large work amount.")
+                #TODO: threshold vals loaded from config
+                
+                #opportunity here to change getJobs condition intelligently
+                #highest/lowest turncount
+                #knight position closest to middle of board
+                #etc
+                
+                #retrieve a lot of jobs
+                newSubmissions = 0
+                for newBoard in self.clusterJobDB.getJobs( {}, NEW_JOB_RETRIEVAL_AMOUNT_LARGE ):
+                    #newState is a ChessBoard, because the JobManager is configured with a serializer function 
+                    super().submitClusterJob( KnightsTour( newBoard.getBoardStateStr(), newBoard.getXDim(), newBoard.getYDim(), newBoard.getTurnCount() ) )
+                    newSubmissions += 1
+                
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("Submitting new jobs for compute: %d" % newSubmissions)
+                    
+            elif (super().getDispyWorkerQSize() > NEW_JOB_RETRIEVAL_UPPER_THRESHOLD):
+                self.logger.info("Pending job count above upper threshold.")
+            else:
+                
+                self.logger.info("Pending job count within thresholds. Retrieving small work amount.")
+                
+                #TODO: reconsider retrieving new work at this point. seeing worker_q size hover around NEW_JOB_RETRIEVAL_UPPER_THRESHOLD
+                
+                # retrieve a few jobs
+                newSubmissions = 0
+                for newBoard in self.clusterJobDB.getJobs( {}, NEW_JOB_RETRIEVAL_AMOUNT_SMALL ):
+                    #newState is a ChessBoard, because the JobManager is configured with a serializer function 
+                    super().submitClusterJob( KnightsTour( newBoard.getBoardStateStr(), newBoard.getXDim(), newBoard.getYDim(), newBoard.getTurnCount() ) )
+                    newSubmissions += 1
+            
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("Submitting new jobs for compute: %d" % newSubmissions)
+            
+            # sleep to let the retrieved work get processed. 
+            # cut sleep short if we run out of work or are terminating the application
+            # cut sleep short if we're running low on work
+            # don't block external termination of this thread
+            i = 0
+            while( i < NEW_WORK_POLL_SLEEP and self.pollingForNewWork == True and (super().getDispyWorkerQSize() > NEW_JOB_RETRIEVAL_LOWER_THRESHOLD )):
+                time.sleep(1)
+                i += 1
+                
+            
+         
+    def isFinished(self):
+        global ktFirstSolutionBoard
+        return ktFirstSolutionBoard != None
 
 ################
 def main(args):
@@ -242,24 +387,27 @@ def main(args):
     global ktTaskDone    
     ktTaskDone = False
     
+    global ktFirstSolutionBoard
+    ktFirstSolutionBoard = None
+    
     global knightsTourTask 
     knightsTourTask = KnightsTourTask(args[1])
     
     knightsTourTask.initializeCluster()
         
-
-    
     #blocks    
     knightsTourTask.start()
     
-    print ("STOPPING")
+    #wait for cluster operation to complete
+    knightsTourTask.waitForWorkloadCompletion()
+    
+    logger.info("Work completed. Shutting down.")
     
     #shutdown
     knightsTourTask.stop()
     
     #save results
-    logger.info("Writing results")
-    #knightsTourTask.writeResults()
+    logger.info("KT First Solution discovered: %s" % ktFirstSolutionBoard)
 
     logger.info("Exiting")
 

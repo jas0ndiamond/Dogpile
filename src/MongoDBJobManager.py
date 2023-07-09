@@ -52,6 +52,9 @@ class MongoDBJobManager(JobManager):
                 
         self.intakeThread.start()
         
+    def getIntakeQueueSize(self):
+        return self.intake.qsize()
+        
     def addToIntake(self, job):
         
         # possible since this is a queue we don't need to lock
@@ -63,10 +66,10 @@ class MongoDBJobManager(JobManager):
     def processIntake(self):
         intakeSleep = 1
         #minClearSize = 100000
-        while(self.runningIntake):
-            if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("Intake queue size: %d" % self.intake.qsize() )
-            
+        
+        intakeBlock = 20 * 1000
+        
+        while(self.runningIntake):         
             
             #intakeQueueSize = self.intake.qsize()
             
@@ -79,8 +82,20 @@ class MongoDBJobManager(JobManager):
             
             #copy and empty the queue contents, and write to database. break loop if we're shutting down
             
-            while(self.intake.empty() == False and self.runningIntake):
+            i = 0
+            while(self.intake.empty() == False and self.runningIntake and i < intakeBlock ):
+                
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("Intake queue size: %d" % self.getIntakeQueueSize() )
+                
+                
+                
+                #TODO: adding jobs in chunks, without explicit breaks, this can run for long periods
+                #likely this is what causes random stalls as it gets resized
+                
                 self.addJob(self.intake.get())
+                
+                i += 1
                         
             # sleep so we're not spinning if there's a lull in intake work
             time.sleep(intakeSleep)
@@ -105,6 +120,8 @@ class MongoDBJobManager(JobManager):
         if self.logger.isEnabledFor(logging.DEBUG):
             start_time = timeit.default_timer()
         
+        
+        
         #call to update_one to check if the hashcode is in the collection, and add it if it is not
         #if a match is found, the matched document is overwritten and likely gets a new objectid
         result = self.dispy_work_collection.update_one( { "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True )
@@ -120,8 +137,8 @@ class MongoDBJobManager(JobManager):
         # match: {'n': 1, 'nModified': 0, 'ok': 1.0, 'updatedExisting': True} 
         # no match: {'n': 1, 'nModified': 0, 'ok': 1.0, 'updatedExisting': False, 'upserted': ObjectId('6493782981cade83cac63132')}
 
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug("addJob result: %s" % pformat(result.raw_result) )
+        #if self.logger.isEnabledFor(logging.DEBUG):
+        #    self.logger.debug("addJob result: %s" % pformat(result.raw_result) )
                 
         #if(result.acknowledged == False):
         #    self.logger.error("Job submission failed")
@@ -143,6 +160,8 @@ class MongoDBJobManager(JobManager):
         
 
         #result = self.dispy_work_collection.insert_many(insert_jobs)
+            
+        #TODO: use bulk_write
             
         for jobToInsert in jobs:
             self.addJob(job)
@@ -221,9 +240,9 @@ class MongoDBJobManager(JobManager):
         
         self.logger.info("Retrieved new jobs: %d" % len(newJobs))
         
-        if logger.isEnabledFor(logging.DEBUG):
+        if self.logger.isEnabledFor(logging.DEBUG):
             elapsed = timeit.default_timer() - start_time
-            logger.debug("getJobs job retrieval completed in time: %f ms" % (elapsed * 1000) )
+            self.logger.debug("getJobs job retrieval completed in time: %f ms" % (elapsed * 1000) )
         
         return newJobs
         

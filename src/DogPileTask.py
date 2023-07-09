@@ -39,6 +39,8 @@ class DogPileTask:
         
         self.logger.info("Built ClusterFactory with nodes: %s" % self.clusterFactory.getConfig().get_nodes())
         
+        self.quit = False
+        
         self.retryQueue = None
         if(enableRetryQueue):
             self.retryQueue = ResultRetryQueue(retryCallback=self.writeClusterJobResult)

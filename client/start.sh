@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo -n "Starting dispynode.py..."
+echo "Starting dispynode.py..."
 
 #must run with --daemon or else docker will kill it
 
@@ -15,7 +15,5 @@ echo -n "Starting dispynode.py..."
  -s $DISPY_SECRET\
  --ext_host $HOST_IP\
  --daemon
- 
-echo "Completed"
 
 sleep infinity

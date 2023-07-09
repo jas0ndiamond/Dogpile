@@ -1,0 +1,20 @@
+version: "3"
+
+#dispy node discovery uses UDP
+#dispy job workflows likely require TCP
+
+services:
+    dogpile_dispy_node:
+        container_name: dogpile_dispy_node
+        image: jas0ndiamond/dogpile_dispy_node
+        environment:
+            DISPY_NODE_NAME: ${DISPY_NODE_NAME}
+            DISPY_SECRET: ${DISPY_SECRET}
+            HOST_IP: ${HOST_IP}
+        ports:
+            - "${DISPY_PORT}:${DISPY_PORT}/tcp"
+            - "${DISPY_PORT}:${DISPY_PORT}/udp"
+        #network_mode: "host"
+        expose: 
+            - ${DISPY_PORT}
+

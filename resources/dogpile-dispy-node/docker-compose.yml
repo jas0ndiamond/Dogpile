@@ -4,9 +4,9 @@ version: "3"
 #dispy job workflows likely require TCP
 
 services:
-    dogpile_dispy_node:
-        container_name: dogpile_dispy_node
-        image: jas0ndiamond/dogpile_dispy_node
+    dogpile-dispy-node:
+        container_name: dogpile-dispy-node
+        image: jas0ndiamond/dogpile-dispy-node
         environment:
             DISPY_NODE_NAME: ${DISPY_NODE_NAME}
             DISPY_SECRET: ${DISPY_SECRET}

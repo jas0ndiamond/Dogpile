@@ -75,6 +75,7 @@ class ChessBoard(ClusterJobResult):
         self.boardState = newState
 
     #create a board from a csv string
+    #TODO: consistent naming
     def setBoardStateFromString(self, newStateString):
 
         #empty board

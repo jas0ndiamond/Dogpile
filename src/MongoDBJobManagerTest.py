@@ -8,10 +8,10 @@ from ChessBoard import ChessBoard
 from pymongo import MongoClient
 
 #connect db
-DB_NAME = "dispy_work"
-DB_USER = "dispy"
-DB_PASS = "dispy_pass"
-DB_HOST = "jupiter"
+DB_NAME = "dogpile_work"
+DB_USER = "dogpile"
+DB_PASS = "dogpile_pass"
+DB_HOST = "mercury"
 DB_PORT = 27017
 DB_TEST_COLLECTION = "MongoDBJobManagerTest"
 
@@ -181,6 +181,280 @@ class TestMongoDBJobManager(unittest.TestCase):
             
         self.assertEqual( 15, len(resultset) )
 
+    def test_intakeSubmissionThreshold(self):
+        
+        #check that jobs are only submitted to the database if the intake queue size is above the threshold
+        
+        #TODO: implement
+        pass
+
+    def test_addJobs(self):
+        # get a pile of jobs inserted
+        # ensure uniqueness for duplicates
+        
+        board1 = ChessBoard(8,8)
+        board1.setSpace(0, 0, ChessBoard.ROOK)
+        board1.setSpace(1, 1, ChessBoard.ROOK)
+        board1.setSpace(2, 2, ChessBoard.ROOK)
+        board1.setSpace(3, 3, ChessBoard.ROOK)
+        board1.setSpace(4, 4, ChessBoard.ROOK)
+        
+        board2 = ChessBoard(8,8)
+        board2.setSpace(0, 0, ChessBoard.KNIGHT)
+        board2.setSpace(1, 1, ChessBoard.KNIGHT)
+        board2.setSpace(2, 2, ChessBoard.KNIGHT)
+        board2.setSpace(3, 3, ChessBoard.KNIGHT)
+        board2.setSpace(4, 4, ChessBoard.KNIGHT)
+        
+        board3 = ChessBoard(8,8)
+        board3.setSpace(0, 0, ChessBoard.BISHOP)
+        board3.setSpace(1, 1, ChessBoard.BISHOP)
+        board3.setSpace(2, 2, ChessBoard.BISHOP)
+        board3.setSpace(3, 3, ChessBoard.BISHOP)
+        board3.setSpace(4, 4, ChessBoard.BISHOP)
+        
+        board4 = ChessBoard(8,8)
+        board4.setSpace(0, 0, ChessBoard.QUEEN)
+        board4.setSpace(1, 1, ChessBoard.QUEEN)
+        board4.setSpace(2, 2, ChessBoard.QUEEN)
+        board4.setSpace(3, 3, ChessBoard.QUEEN)
+        board4.setSpace(4, 4, ChessBoard.QUEEN)
+        
+        board5 = ChessBoard(8,8)
+        board5.setSpace(0, 0, ChessBoard.KING)
+        board5.setSpace(1, 1, ChessBoard.KING)
+        board5.setSpace(2, 2, ChessBoard.KING)
+        board5.setSpace(3, 3, ChessBoard.KING)
+        board5.setSpace(4, 4, ChessBoard.KING)        
+        
+        board6 = ChessBoard(8,8)
+        board6.setSpace(7, 7, ChessBoard.ROOK)
+        board6.setSpace(6, 6, ChessBoard.ROOK)
+        board6.setSpace(5, 5, ChessBoard.ROOK)
+        board6.setSpace(4, 4, ChessBoard.ROOK)
+        board6.setSpace(5, 5, ChessBoard.ROOK) 
+        
+        board7 = ChessBoard(8,8)
+        board7.setSpace(7, 7, ChessBoard.KNIGHT)
+        board7.setSpace(6, 6, ChessBoard.KNIGHT)
+        board7.setSpace(5, 5, ChessBoard.KNIGHT)
+        board7.setSpace(4, 4, ChessBoard.KNIGHT)
+        board7.setSpace(5, 5, ChessBoard.KNIGHT) 
+        
+        board8 = ChessBoard(8,8)
+        board8.setSpace(7, 7, ChessBoard.BISHOP)
+        board8.setSpace(6, 6, ChessBoard.BISHOP)
+        board8.setSpace(5, 5, ChessBoard.BISHOP)
+        board8.setSpace(4, 4, ChessBoard.BISHOP)
+        board8.setSpace(5, 5, ChessBoard.BISHOP) 
+        
+        board9 = ChessBoard(8,8)
+        board9.setSpace(7, 7, ChessBoard.QUEEN)
+        board9.setSpace(6, 6, ChessBoard.QUEEN)
+        board9.setSpace(5, 5, ChessBoard.QUEEN)
+        board9.setSpace(4, 4, ChessBoard.QUEEN)
+        board9.setSpace(5, 5, ChessBoard.QUEEN) 
+        
+        board10 = ChessBoard(8,8)
+        board10.setSpace(7, 7, ChessBoard.KING)
+        board10.setSpace(6, 6, ChessBoard.KING)
+        board10.setSpace(5, 5, ChessBoard.KING)
+        board10.setSpace(4, 4, ChessBoard.KING)
+        board10.setSpace(5, 5, ChessBoard.KING) 
+        
+        ########
+        
+        board11 = ChessBoard(8,8)
+        board11.setSpace(0, 0, ChessBoard.ROOK)
+        board11.setSpace(0, 1, ChessBoard.ROOK)
+        board11.setSpace(0, 2, ChessBoard.ROOK)
+        board11.setSpace(0, 3, ChessBoard.ROOK)
+        board11.setSpace(0, 4, ChessBoard.ROOK)
+        
+        board12 = ChessBoard(8,8)
+        board12.setSpace(0, 0, ChessBoard.KNIGHT)
+        board12.setSpace(0, 1, ChessBoard.KNIGHT)
+        board12.setSpace(0, 2, ChessBoard.KNIGHT)
+        board12.setSpace(0, 3, ChessBoard.KNIGHT)
+        board12.setSpace(0, 4, ChessBoard.KNIGHT)
+        
+        board13 = ChessBoard(8,8)
+        board13.setSpace(0, 0, ChessBoard.BISHOP)
+        board13.setSpace(0, 1, ChessBoard.BISHOP)
+        board13.setSpace(0, 2, ChessBoard.BISHOP)
+        board13.setSpace(0, 3, ChessBoard.BISHOP)
+        board13.setSpace(0, 4, ChessBoard.BISHOP)
+        
+        board14 = ChessBoard(8,8)
+        board14.setSpace(0, 0, ChessBoard.QUEEN)
+        board14.setSpace(0, 1, ChessBoard.QUEEN)
+        board14.setSpace(0, 2, ChessBoard.QUEEN)
+        board14.setSpace(0, 3, ChessBoard.QUEEN)
+        board14.setSpace(0, 4, ChessBoard.QUEEN)
+        
+        board15 = ChessBoard(8,8)
+        board15.setSpace(0, 0, ChessBoard.KING)
+        board15.setSpace(0, 1, ChessBoard.KING)
+        board15.setSpace(0, 2, ChessBoard.KING)
+        board15.setSpace(0, 3, ChessBoard.KING)
+        board15.setSpace(0, 4, ChessBoard.KING)
+        
+        board16 = ChessBoard(8,8)
+        board16.setSpace(0, 0, ChessBoard.ROOK)
+        board16.setSpace(1, 0, ChessBoard.ROOK)
+        board16.setSpace(2, 0, ChessBoard.ROOK)
+        board16.setSpace(3, 0, ChessBoard.ROOK)
+        board16.setSpace(4, 0, ChessBoard.ROOK)
+        
+        board17 = ChessBoard(8,8)
+        board17.setSpace(0, 0, ChessBoard.KNIGHT)
+        board17.setSpace(1, 0, ChessBoard.KNIGHT)
+        board17.setSpace(2, 0, ChessBoard.KNIGHT)
+        board17.setSpace(3, 0, ChessBoard.KNIGHT)
+        board17.setSpace(4, 0, ChessBoard.KNIGHT)
+        
+        board18 = ChessBoard(8,8)
+        board18.setSpace(0, 0, ChessBoard.BISHOP)
+        board18.setSpace(1, 0, ChessBoard.BISHOP)
+        board18.setSpace(2, 0, ChessBoard.BISHOP)
+        board18.setSpace(3, 0, ChessBoard.BISHOP)
+        board18.setSpace(4, 0, ChessBoard.BISHOP)
+        
+        board19 = ChessBoard(8,8)
+        board19.setSpace(0, 0, ChessBoard.QUEEN)
+        board19.setSpace(1, 0, ChessBoard.QUEEN)
+        board19.setSpace(2, 0, ChessBoard.QUEEN)
+        board19.setSpace(3, 0, ChessBoard.QUEEN)
+        board19.setSpace(4, 0, ChessBoard.QUEEN)
+        
+        board20 = ChessBoard(8,8)
+        board20.setSpace(0, 0, ChessBoard.KING)
+        board20.setSpace(1, 0, ChessBoard.KING)
+        board20.setSpace(2, 0, ChessBoard.KING)
+        board20.setSpace(3, 0, ChessBoard.KING)
+        board20.setSpace(4, 0, ChessBoard.KING)
+        
+        # duplicates of boards 1-8
+        board21 = ChessBoard(8,8)
+        board21.setBoardStateFromString(board1.getBoardStateStr())
+        
+        board22 = ChessBoard(8,8)
+        board22.setBoardStateFromString(board2.getBoardStateStr())
+        
+        board23 = ChessBoard(8,8)
+        board23.setBoardStateFromString(board3.getBoardStateStr())
+        
+        board24 = ChessBoard(8,8)
+        board24.setBoardStateFromString(board4.getBoardStateStr())
+        
+        board25 = ChessBoard(8,8)
+        board25.setBoardStateFromString(board5.getBoardStateStr())
+        
+        board26 = ChessBoard(8,8)
+        board26.setBoardStateFromString(board6.getBoardStateStr())
+        
+        board27 = ChessBoard(8,8)
+        board27.setBoardStateFromString(board7.getBoardStateStr())
+        
+        board28 = ChessBoard(8,8)
+        board28.setBoardStateFromString(board8.getBoardStateStr())
+        
+        board29 = ChessBoard(8,8)
+        board29.setBoardStateFromString(board9.getBoardStateStr())
+        
+        board30 = ChessBoard(8,8)
+        board30.setBoardStateFromString(board10.getBoardStateStr())
+
+        # sanity check our set of duplicate boards
+        self.assertEqual( board1.getHashCode(), board21.getHashCode() )
+        self.assertEqual( board2.getHashCode(), board22.getHashCode() )
+        self.assertEqual( board3.getHashCode(), board23.getHashCode() )
+        self.assertEqual( board4.getHashCode(), board24.getHashCode() )
+        self.assertEqual( board5.getHashCode(), board25.getHashCode() )
+        self.assertEqual( board6.getHashCode(), board26.getHashCode() )
+        self.assertEqual( board7.getHashCode(), board27.getHashCode() )
+        self.assertEqual( board8.getHashCode(), board28.getHashCode() )        
+        self.assertEqual( board9.getHashCode(), board29.getHashCode() )
+        self.assertEqual( board10.getHashCode(), board30.getHashCode() )
+        
+        #######
+        # insert the 20 unique boards
+        
+        toSubmit1 = [
+            board1,
+            board2,
+            board3,
+            board4,
+            board5,
+            board6,
+            board7,
+            board8,
+            board9,
+            board10,
+            board11,
+            board12,
+            board13,
+            board14,
+            board15,                        
+            board16,
+            board17,
+            board18,
+            board19,
+            board20   
+        ]
+        
+        self.mgr.addJobs( toSubmit1 )
+        
+        self.assertEqual( 20, self.mgr.getJobCount() )
+        
+        self.mgr.clearJobs()
+        
+        self.assertEqual( 0, self.mgr.getJobCount() )
+        
+        # drop the collection contents
+        
+        # insert the 30 boards with some duplicates, expect only the uniques in result set
+        
+        toSubmit2 = [
+            board1,
+            board2,
+            board3,
+            board4,
+            board5,
+            board6,
+            board7,
+            board8,
+            board9,
+            board10,
+            board11,
+            board12,
+            board13,
+            board14,
+            board15,                        
+            board16,
+            board17,
+            board18,
+            board19,
+            board20,  
+            board21,
+            board22,
+            board23,
+            board24,
+            board25,                        
+            board26,
+            board27,
+            board28,
+            board29,
+            board30              
+        ]
+        
+        self.mgr.addJobs( toSubmit2 )
+        
+        self.assertEqual( 20, self.mgr.getJobCount() )
+        
+        
+        
+                                        
 if __name__ == '__main__':
     
     results1 = []

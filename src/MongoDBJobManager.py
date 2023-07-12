@@ -6,7 +6,7 @@ import timeit
 from threading import Thread, Lock
 
 from pprint import pprint, pformat
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from bson import ObjectId
 
 from JobManager import JobManager
@@ -15,7 +15,7 @@ logFile = "run.log"
 
 MAX_INTAKE_SIZE = 2 * 1000 * 1000
 
-#On-disk management of job state data
+# On-disk management of job state data
 #TODO: refactor naming of functions like 'addJob' to 'addState' and similar
 class MongoDBJobManager(JobManager):
     
@@ -25,7 +25,11 @@ class MongoDBJobManager(JobManager):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel( logging.DEBUG )
         
-        self.client = MongoClient(host=db_host, port=db_port, username=db_user, password=db_pass, authSource='admin', authMechanism='SCRAM-SHA-1', w=0)
+        #TODO: look into having the job insertion and job retrieval set their own write concerns. 
+        # possible we care less about job insertion results for the sake of performance.
+        # possible we care more about job deletion because we don't want to doubly execute work
+        self.client = MongoClient(host=db_host, port=db_port, username=db_user, password=db_pass, authSource='admin', authMechanism='SCRAM-SHA-1')
+        #, w=0
         
         #TODO default value for collection_name. cannot be empty string
         
@@ -33,6 +37,13 @@ class MongoDBJobManager(JobManager):
         #require at least one named collection for the database
         self.database = self.client[db_name]
         self.dispy_work_collection = self.database[collection_name]
+        
+        # clear the collection in case a sloppy shutdown did not
+        self.dispy_work_collection.drop()
+        
+        # create our job field index. without this, inserts with uniqueness contraints are too slow
+        self.dispy_work_collection.drop_index( "hashCode" )
+        self.dispy_work_collection.create_index( "hashCode" )
         
         self.logger.info("Building MongoDBJobManager for collection %s at %s:%d" % (collection_name, db_host, db_port) )
         
@@ -46,11 +57,36 @@ class MongoDBJobManager(JobManager):
         self.closed = False
         
         self.runningIntake = True
-        self.intakeLock = Lock()
         
         self.intakeThread = Thread(target=self.processIntake)
                 
+        # threshold of intake queue size, above which entries are written to the database
+        self.intakeSubmissionThreshold = 0
+        
+        # number of jobs to write to the database at a time
+        self.intakeBlockSize = 20 * 1000
+        
+        self.intakeProcessingSleep = 1
+        
         self.intakeThread.start()
+        
+    def setIntakeSubmissionThreshold(self, threshold):
+        if(threshold >= 0):
+            self.intakeSubmissionThreshold = threshold
+        else:
+            self.logger.warning("Rejecting invalid intake submission threshold")
+        
+    def setIntakeBlockSize(self, size):
+        if(size > 0):
+            self.intakeBlockSize = size
+        else:
+            self.logger.warning("Rejecting invalid intake block size")
+            
+    def setIntakeProcessingSleep(self, sleepLen):
+        if( sleepLen > 0 ):
+            self.intakeProcessingSleep = sleepLen
+        else:
+            self.logger.warning("Rejecting invalid intake processing sleep")
         
     def getIntakeQueueSize(self):
         return self.intake.qsize()
@@ -64,66 +100,81 @@ class MongoDBJobManager(JobManager):
         
     #process intake queue in background, so each external job add doesn't incur a db write and block the dispy job callback
     def processIntake(self):
-        intakeSleep = 1
-        #minClearSize = 100000
         
-        intakeBlock = 20 * 1000
+        #need to ensure if queue is filled up faster than it can be cleared, then this loop may never exit
         
+        #currently experimenting with async writes => not super helpful
+        
+        jobSubmissionBlock = []
+        
+        previousIntakeQueueSize = 0
+        
+        #also need to allow first jobs to be processed or they might never make it to 
+        #the database, and won't ever be available for retrieval
+        #if( intakeQueueSize > minClearSize or intakeQueueSize < 100):
         while(self.runningIntake):         
-            
-            #intakeQueueSize = self.intake.qsize()
-            
-            #if queue is filled up faster than it can be cleared, then this loop may never exit
-            #also need to allow first jobs to be processed or they might never make it to 
-            #the database, and won't ever be available for retrieval
-            #if( intakeQueueSize > minClearSize or intakeQueueSize < 100):
-            
-            #currently experimenting with async writes => not super helpful
-            
-            #copy and empty the queue contents, and write to database. break loop if we're shutting down
-            
-            i = 0
-            while(self.intake.empty() == False and self.runningIntake and i < intakeBlock ):
+            jobSubmissionBlock.clear()
                 
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("Intake queue size: %d" % self.getIntakeQueueSize() )
+            queueSize = self.getIntakeQueueSize()
                 
+            #if we don't have a lower bound, nodes will starve as submitted jobs never make it to the database for retrieval
+            #TODO: manage this parameter
+            if(queueSize == previousIntakeQueueSize or queueSize > self.intakeSubmissionThreshold):
                 
+                if( self.logger.isEnabledFor(logging.DEBUG)):
+                    self.logger.debug("Writing Intake Queue contents to database")
+
                 
-                #TODO: adding jobs in chunks, without explicit breaks, this can run for long periods
-                #likely this is what causes random stalls as it gets resized
+                # likely the intake queue resizing is what causes random stalls
                 
-                self.addJob(self.intake.get())
+                # this loop must terminate reasonably- if we're inundated with jobs it's possible they just get infinitely added 
+                # to jobSubmissionBlock but never written to the database
+                i = 0
+                while( i < self.intakeBlockSize and self.intake.empty() == False):
+                    jobSubmissionBlock.append(self.intake.get())
+                    i += 1
                 
-                i += 1
-                        
-            # sleep so we're not spinning if there's a lull in intake work
-            time.sleep(intakeSleep)
+                # only if we have jobs to submit, and we haven't seen a shutdown signal while compiling the job submission block
+                if(jobSubmissionBlock and self.runningIntake):
+                    
+                    if( self.logger.isEnabledFor(logging.DEBUG)):
+                        self.logger.debug("Writing %d new jobs to database from intake queue" % (len(jobSubmissionBlock) ) )
+                    
+                    self.addJobs(jobSubmissionBlock)
+                    
+                # no sleep. db write is probably enough of a time gap for the queue to replenish
+            else:
+                if( self.logger.isEnabledFor(logging.DEBUG)):
+                    self.logger.debug("Intake Queue size under submission threshold")
+                    
+                previousIntakeQueueSize = queueSize
+                    
+                # sleep so we're not spinning if there's a lull in intake work
+                time.sleep(self.intakeProcessingSleep)
         
         self.logger.info("Intake Queue Thread exiting")
-            
+         
+    # add a single job to the job database. enforces uniqueness with job hashcodes. 
     def addJob(self, job):
         
-        #TODO: instance check - job should be a subtype of ClusterJobResult
-        #ClusterJobResult require toDict method?
+        #TODO: instance check - each job should be a subtype of ClusterJobResult
+        #TODO: check hashcode field existence in job before hitting the database       
         
-        #result = self.dispy_work_collection.insert_one(job.toDict())
+        #ClusterJobResult require toDict method?
         
         #if(result.acknowledged == False):
         #    self.logger.error("Job submission failed")
         
-        #self.addJobs([job])
-        jobToInsert = job.toDict()
-        
-        # check hashcode existence in job before hitting the database
-        
-        if self.logger.isEnabledFor(logging.DEBUG):
+        if( self.logger.isEnabledFor(logging.DEBUG)):
             start_time = timeit.default_timer()
         
+        jobToInsert = job.toDict()
         
-        
-        #call to update_one to check if the hashcode is in the collection, and add it if it is not
-        #if a match is found, the matched document is overwritten and likely gets a new objectid
+        #TODO: check hashcode field existence in job before hitting the database
+                
+        # call to update_one to check if the hashcode is in the collection, and add it if it is not
+        # if a match is found, the matched document is overwritten and likely gets a new objectid
+        # not the best...would be better if the overwrite was not executed for duplicates
         result = self.dispy_work_collection.update_one( { "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True )
          
          
@@ -143,11 +194,9 @@ class MongoDBJobManager(JobManager):
         #if(result.acknowledged == False):
         #    self.logger.error("Job submission failed")
         
+    # add a list of jobs with unique hashcodes to the database. 
     def addJobs(self, jobs):
         
-        # TODO benchmark logging at debug level
-        
-        # TODO: instance check - each job should be a subtype of ClusterJobResult
         
         # how to enforce uniqueness
         # a double-insert of the same new object should only add one document to the database
@@ -158,20 +207,34 @@ class MongoDBJobManager(JobManager):
 
         #db.col.update( {match_condition}, {new_job}, {upsert:true} )
         
+        if self.logger.isEnabledFor(logging.DEBUG):
+            start_time = timeit.default_timer()
 
-        #result = self.dispy_work_collection.insert_many(insert_jobs)
-            
-        #TODO: use bulk_write
-            
-        for jobToInsert in jobs:
-            self.addJob(job)
-            #result = self.dispy_work_collection.update( { "hashCode": jobToInsert["hashCode"] }, jobToInsert, {"upsert:true"} )
-                
-            #if(result.acknowledged == False):
-            #    self.logger.error("Job submission failed")
-            #else:
-            #    self.logger.warn("addJobs invoked with zero jobs")
+        # single job submission for reference:
+        # result = self.dispy_work_collection.update_one( "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True ) )
+
+        requests = []
         
+        for job in jobs:
+            
+            #TODO: instance check - each job should be a subtype of ClusterJobResult
+            #TODO: check hashcode field existence in job before hitting the database
+            
+            # get the document from the job
+            jobToInsert = job.toDict()
+            
+            #TODO: see if possible with UpdateMany
+            #TODO: upsert possible in call to bulk_write rather than in each call to UpdateOne?
+            
+            requests.append( UpdateOne( { "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True ) )
+
+        self.dispy_work_collection.bulk_write(requests)
+        
+        if self.logger.isEnabledFor(logging.DEBUG):
+            elapsed = timeit.default_timer() - start_time
+            self.logger.debug("addJobs of %d completed in time: %f ms" % ( len(jobs), (elapsed * 1000) ) )
+        
+    
     def getJobs(self, condition={}, count=10000):
                                 
         # need to atomically:
@@ -182,7 +245,7 @@ class MongoDBJobManager(JobManager):
 
         newJobs = []
         
-        #TODO: plug this in elsewhere
+        #TODO: plug this in in other places. the db connection can close randomly from external actions.
         if(self.closed == True):
             self.logger.warn("getJobs was called, but the database client was shut down. Returning.")
             return newJobs
@@ -202,8 +265,9 @@ class MongoDBJobManager(JobManager):
             # get the next batch of jobs as documents
             for newJobDoc in self.dispy_work_collection.find(condition).limit(count):
              
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("Document returned: %s" % pformat(newJobDoc))
+                #trace
+                #if self.logger.isEnabledFor(logging.DEBUG):
+                #    self.logger.debug("Document returned: %s" % pformat(newJobDoc))
                 
                 #serialize job doc to the adhoc cluster job
                 #append to list of returned jobs
@@ -212,16 +276,19 @@ class MongoDBJobManager(JobManager):
                 
                 ####################
                 #TODO: since inserting with upsert in addJobs may overwrite or otherwise change the doc's _id, consider discarding by hashCode instead
+                # this may not be a factor since we're '
                 ####################
                 
                 self.logger.info("New job for ObjectId: %s" % newJobDoc['_id'] )
                 
                 #append object id to our todiscard list
+                #could use hashcode but that's most suited to comparing board states
                 newJobIds.append( newJobDoc['_id'] )
 
-            self.logger.info("Retrieved %d new jobs" % len(newJobs) )
+            self.logger.info("Retrieved %d new jobs from database" % len(newJobs) )
 
-            if( len(newJobs) > 0 ):
+            # if we have new jobs to delete from the db after retrieval
+            if( newJobs ):
 
                 #delete jobids for the work we're committing to
                 deletion_result = self.dispy_work_collection.delete_many(
@@ -238,8 +305,6 @@ class MongoDBJobManager(JobManager):
             else:
                 self.logger.info("getJobs did not find new jobs from database")
         
-        self.logger.info("Retrieved new jobs: %d" % len(newJobs))
-        
         if self.logger.isEnabledFor(logging.DEBUG):
             elapsed = timeit.default_timer() - start_time
             self.logger.debug("getJobs job retrieval completed in time: %f ms" % (elapsed * 1000) )
@@ -251,6 +316,7 @@ class MongoDBJobManager(JobManager):
         self.dispy_work_collection.delete_many(condition)
         
     def getJobCount(self):
+        #this can take a long time for collection sizes in the millions
         return self.dispy_work_collection.count_documents({})
         
     def clearJobs(self):

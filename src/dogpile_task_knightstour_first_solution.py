@@ -38,13 +38,16 @@ logger.setLevel( logging.DEBUG )
 
 #TODO: add to config file
 #connect db
-DB_NAME = "dispy_work"
-DB_USER = "dispy"
-DB_PASS = "dispy_pass"
-DB_HOST = "jupiter"
+DB_NAME = "dogpile_work"
+DB_USER = "dogpile"
+DB_PASS = "dogpile_pass"
+DB_HOST = "mercury"
 DB_PORT = 27017
-ID_LEN = 8
-DB_JOB_COLLECTION = "KT-BREADTH-FIRST_" + str(int(time.time()))
+
+# TODO: toggle test string
+#DB_JOB_COLLECTION = "KT-BREADTH-FIRST_" + str(int(time.time()))
+DB_JOB_COLLECTION = "KT-BREADTH-FIRST_TEST"
+
 
 # worker_Q size threshold where we request a lot of work if worker_Q size is lower
 NEW_JOB_RETRIEVAL_LOWER_THRESHOLD = 10 * 1000
@@ -53,8 +56,8 @@ NEW_JOB_RETRIEVAL_LOWER_THRESHOLD = 10 * 1000
 NEW_JOB_RETRIEVAL_UPPER_THRESHOLD = 500 * 1000
 
 #TODO: large and small amounts. has to be tuned to job expansion rate. would be nice if this tuned itself
-NEW_JOB_RETRIEVAL_AMOUNT_LARGE  = 50 * 1000
-NEW_JOB_RETRIEVAL_AMOUNT_SMALL = 200
+NEW_JOB_RETRIEVAL_AMOUNT_LARGE = 2 * 1000
+NEW_JOB_RETRIEVAL_AMOUNT_SMALL = 50
 
 NEW_WORK_POLL_SLEEP = 20 #seconds
 
@@ -79,8 +82,9 @@ def jobStatusCallback(job):
             logger.warning("Received a null job result for job id: %s" % job.id)
             return
         
-        if(logger.isEnabledFor(logging.DEBUG)):
-            logger.debug('job finished for %s: %s' % (job.id, job.result))
+        #trace
+        #if(logger.isEnabledFor(logging.DEBUG)):
+        #    logger.debug('job finished for %s: %s' % (job.id, job.result))
 
         #at this point we've received a result board, assume coherent
         
@@ -103,6 +107,8 @@ def jobStatusCallback(job):
             
             elif(isTourComplete(expandedBoard)):
                 
+                # is this the solution state?
+                
                 logger.info("*********Tour complete:\n%s\n" % expandedBoard.dump())
                 #write final result
                 #cancel in-progress work
@@ -120,8 +126,9 @@ def jobStatusCallback(job):
                 #knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )
                 knightsTourTask.submitNewJob( expandedBoard )
                 
-                if(logger.isEnabledFor(logging.DEBUG)):
-                    logger.debug("Expanding board:\n%s\n" % expandedBoard.dump())
+                #trace
+                #if(logger.isEnabledFor(logging.DEBUG)):
+                #    logger.debug("Expanding board:\n%s\n" % expandedBoard.dump())
                 
                 #adds to record of known boards as side effect to avoid copying board state more than once
     #                if(checkIfNewBoard(expandedBoard)):
@@ -137,10 +144,10 @@ def jobStatusCallback(job):
     #                        logger.debug("Skipping expansion of old board:\n%s\n" % expandedBoard.dump())
 
         
-        
-        if logger.isEnabledFor(logging.DEBUG):
-            elapsed = timeit.default_timer() - start_time
-            logger.debug("Submission of expanded boards completed in time: %f ms" % (elapsed * 1000) )
+        #trace
+        #if logger.isEnabledFor(logging.DEBUG):
+        #    elapsed = timeit.default_timer() - start_time
+        #    logger.debug("Submission of expanded boards completed in time: %f ms" % (elapsed * 1000) )
         
         #TODO: signal callback work is finished - different from counting 
 
@@ -154,10 +161,6 @@ def jobStatusCallback(job):
         logger.warn("Unexpected job status: %d" % job.status )
         #if we're not logging warnings above
         pass
-        
-    if(logger.isEnabledFor(logging.DEBUG)):
-        logger.debug("=====dispy worker_Q size %d =====" % knightsTourTask.getDispyWorkerQSize())
-        logger.debug("=====jobStatusCallback returning=====")
 
 #implementation where a result can generate new cluster jobs, and cancel in-progress work if we're done
 def clusterStatusCallback(status, node, job):
@@ -220,6 +223,8 @@ def checkIfNewBoard(board):
 ##############################
 
 class KnightsTourTask(DogPileTask):
+    
+    # TODO: accept a chessboard as a start state
     def __init__(self, confFile, startx=4, starty=4):
         super().__init__(confFile, enableRetryQueue=False)
         
@@ -228,10 +233,12 @@ class KnightsTourTask(DogPileTask):
       
         self.newWorkPollingThread = None
         self.pollingForNewWork = True
+        
+        self.clusterJobDB = None
       
     #overrides superclass method
     def initializeCluster(self):
-        logger.info("initializing cluster for knights tour")
+        logger.info("Initializing cluster for knights tour")
         
         clusterFactory = super().getClusterFactory()
         
@@ -244,6 +251,9 @@ class KnightsTourTask(DogPileTask):
         #TODO: reallocate nodes in case we previously had a sloppy shutdown?
         
         self.clusterJobDB = MongoDBJobManager(DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME, DB_JOB_COLLECTION, ChessBoard.serializeFromDict)
+        
+        #constant for this value
+        self.clusterJobDB.setIntakeSubmissionThreshold(22 * 1000)
         
         self.newWorkPollingThread = Thread(target=self._pollForNewWork)
         
@@ -281,14 +291,12 @@ class KnightsTourTask(DogPileTask):
 
     #states are stored in the database, and DogpileTasks have states loaded into them, and are submitted to the cluster for workload execution
     def submitNewJob(self, newState):
-        #TODO type check ChessBoard object
         
-        logger.info("Adding new job")
+        # TODO type check ChessBoard object
+        logger.info("Adding new job:\n%s\n" % newState.dump()
 
-        #self.clusterJobDB.addJob(newState)
         self.clusterJobDB.addToIntake(newState)
-
-
+        
     def stop(self):
         
         logger.info("Stopping dogpile knightstour task")
@@ -305,6 +313,31 @@ class KnightsTourTask(DogPileTask):
     #if we run out of work, this loop must be stopped or paused externally
     def _pollForNewWork(self):
         
+        #TODO: move bulk to DogpileTask, though subclass will still need to be able to specify a retrieval condition
+        
+        ########
+        # there are several queues to manage to prevent memory exhaustion on the dispy server node:
+        # dispy's worker_Q - a queue of incoming responses from nodes
+        ## grows when work results cannot be processed faster than their arrival rate
+        # dispy's pending jobs queue - a queue of jobs submitted to the dispy cluster waiting on node availibility
+        ## grows when many jobs are submitted to the cluster faster than nodes can accept and complete them
+        # dogpile's JobManager intake queue - a queue of pending jobs destined for insertion in external storage
+        ## grows when insertions into external storage are outpaced by insertions of new jobs
+        
+        # the goal is to manage release of jobs to cluster nodes to keep queue sizes under control, and allow
+        # the external job storage to grow as large as necessary
+        
+        # these queues are not pre-allocated, so when they re-size themselves, pileups can occur
+        
+        # database insertions with constraints on uniqueness typically increase in duration for larger datasets
+        
+        # most of the time, we should avoid letting nodes sit idle. exceptions for extremely fast-growing problems
+        
+        # dispy will always have a worker_Q
+        # a job manager will always have an intake queue
+        ########
+        
+        
         # pending cluster work is in the remote db
         # each work job generates a bunch of callback invocations that get enqueued into dispy's worker_Q
         # have to manage size of worker_Q or else memory will get exhausted
@@ -314,8 +347,12 @@ class KnightsTourTask(DogPileTask):
             #while(self.pollingPaused == True):
             #    time.sleep(30)
             
-            #if(super().getPendingJobCount() < NEW_JOB_RETRIEVAL_THRESHOLD):
-            if(super().getDispyWorkerQSize() < NEW_JOB_RETRIEVAL_LOWER_THRESHOLD):
+            #TODO: also consider pending job count super().getPendingJobCount()
+            
+            workerQSize = super().getDispyWorkerQSize()
+            intakeQueueSize = self.clusterJobDB.getIntakeQueueSize()
+            
+            if(workerQSize < NEW_JOB_RETRIEVAL_LOWER_THRESHOLD and intakeQueueSize < NEW_JOB_RETRIEVAL_LOWER_THRESHOLD):
                 
                 # if the worker_Q has shrunk, release more work
                 
@@ -334,10 +371,10 @@ class KnightsTourTask(DogPileTask):
                     super().submitClusterJob( KnightsTour( newBoard.getBoardStateStr(), newBoard.getXDim(), newBoard.getYDim(), newBoard.getTurnCount() ) )
                     newSubmissions += 1
                 
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("Submitting new jobs for compute: %d" % newSubmissions)
+                #if self.logger.isEnabledFor(logging.DEBUG):
+                #    self.logger.debug("Submitting new jobs for compute: %d" % newSubmissions)
                     
-            elif (super().getDispyWorkerQSize() > NEW_JOB_RETRIEVAL_UPPER_THRESHOLD):
+            elif ( workerQSize > NEW_JOB_RETRIEVAL_UPPER_THRESHOLD or intakeQueueSize > NEW_JOB_RETRIEVAL_UPPER_THRESHOLD):
                 self.logger.info("Pending job count above upper threshold.")
             else:
                 
@@ -352,15 +389,28 @@ class KnightsTourTask(DogPileTask):
                     super().submitClusterJob( KnightsTour( newBoard.getBoardStateStr(), newBoard.getXDim(), newBoard.getYDim(), newBoard.getTurnCount() ) )
                     newSubmissions += 1
             
-                if self.logger.isEnabledFor(logging.DEBUG):
-                    self.logger.debug("Submitting new jobs for compute: %d" % newSubmissions)
+                #if self.logger.isEnabledFor(logging.DEBUG):
+                #    self.logger.debug("Submitting new jobs for compute: %d" % newSubmissions)
+            
+            
+            ####################
+            # workload stats
+            
+            workerQSize = super().getDispyWorkerQSize()
+            intakeQueueSize = self.clusterJobDB.getIntakeQueueSize()
+            pendingJobsCount = super().getPendingJobCount()
+            
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("================ Intake queue size: %d, worker_Q size: %d, pending jobs count: %d" % (intakeQueueSize, workerQSize, pendingJobsCount) )
+            
+            ####################
             
             # sleep to let the retrieved work get processed. 
             # cut sleep short if we run out of work or are terminating the application
             # cut sleep short if we're running low on work
             # don't block external termination of this thread
             i = 0
-            while( i < NEW_WORK_POLL_SLEEP and self.pollingForNewWork == True and (super().getDispyWorkerQSize() > NEW_JOB_RETRIEVAL_LOWER_THRESHOLD )):
+            while( i < NEW_WORK_POLL_SLEEP and self.pollingForNewWork == True and (super().getDispyWorkerQSize() > NEW_JOB_RETRIEVAL_LOWER_THRESHOLD or self.clusterJobDB.getIntakeQueueSize() > NEW_JOB_RETRIEVAL_LOWER_THRESHOLD )):
                 time.sleep(1)
                 i += 1
                 

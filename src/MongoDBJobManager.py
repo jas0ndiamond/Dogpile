@@ -29,7 +29,7 @@ class MongoDBJobManager(JobManager):
         #TODO: look into having the job insertion and job retrieval set their own write concerns. 
         # possible we care less about job insertion results for the sake of performance.
         # possible we care more about job deletion because we don't want to doubly execute work
-        self.client = MongoClient(host=db_host, port=db_port, username=db_user, password=db_pass, authSource='admin', authMechanism='SCRAM-SHA-1')
+        self.client = MongoClient(host=db_host, port=db_port, username=db_user, password=db_pass, authSource='admin', authMechanism='SCRAM-SHA-1', w=0)
         #, w=0
         
         #TODO default value for collection_name. cannot be empty string
@@ -261,7 +261,7 @@ class MongoDBJobManager(JobManager):
             if self.logger.isEnabledFor(logging.DEBUG):
                 start_time = timeit.default_timer()
             
-            newJobIds = []
+            newJobHashCodes = []
             
             #TODO sort?
             
@@ -278,15 +278,14 @@ class MongoDBJobManager(JobManager):
                 newJobs.append( self.jobSerializer( newJobDoc ) )
                 
                 ####################
-                #TODO: since inserting with upsert in addJobs may overwrite or otherwise change the doc's _id, consider discarding by hashCode instead
-                # this may not be a factor since we're '
+                # since inserting with upsert in addJobs may overwrite or otherwise change the doc's _id, discard by hashCode instead
                 ####################
                 
-                self.logger.info("New job for ObjectId: %s" % newJobDoc['_id'] )
+                self.logger.info("New job for hashCodes: %s" % newJobDoc[HASHCODE_FIELD] )
                 
                 #append object id to our todiscard list
                 #could use hashcode but that's most suited to comparing board states
-                newJobIds.append( newJobDoc['_id'] )
+                newJobHashCodes.append( newJobDoc[HASHCODE_FIELD] )
 
             self.logger.info("Retrieved %d new jobs from database" % len(newJobs) )
 
@@ -296,15 +295,19 @@ class MongoDBJobManager(JobManager):
                 #delete jobids for the work we're committing to
                 deletion_result = self.dispy_work_collection.delete_many(
                     {
-                        "_id": { "$in": newJobIds }
+                        HASHCODE_FIELD: { "$in": newJobHashCodes }
                     }
                 )
         
-                #testing with client w=0, where these writes are not acknowledged
+                ##################
+                # testing results of the deletion, requires a write_concern != 0. our client sets write_concern to 0 
+                
                 #if deletion_result.deleted_count != len(newJobs):
                 #    self.logger.error("Error deleting ids: %d" % deletion_result.deleted_count)
                     
-                #self.logger.info("Deleted %d ids" % deletion_result.deleted_count)
+                #self.logger.info("Deleted %d jobs as part of retrieval" % deletion_result.deleted_count)
+                
+                ##################
             else:
                 self.logger.info("getJobs did not find new jobs from database")
         
@@ -315,6 +318,7 @@ class MongoDBJobManager(JobManager):
         return newJobs
         
     def trimJobs(self, condition):
+        # trim the jobs db with a context-aware condition
         #TODO: defer conditional to caller? would have to know mongodb conditionals
         self.dispy_work_collection.delete_many(condition)
         

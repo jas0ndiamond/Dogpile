@@ -407,11 +407,10 @@ class TestMongoDBJobManager(unittest.TestCase):
         
         self.assertEqual( 20, self.mgr.getJobCount() )
         
-        self.mgr.clearJobs()
+        # get the jobs from the db, clearing the collection
+        newJobs = self.mgr.getJobs({}, 20)
         
-        self.assertEqual( 0, self.mgr.getJobCount() )
-        
-        # drop the collection contents
+        self.assertEqual( 0, self.mgr.getJobCount() )       
         
         # insert the 30 boards with some duplicates, expect only the uniques in result set
         
@@ -452,7 +451,9 @@ class TestMongoDBJobManager(unittest.TestCase):
         
         self.assertEqual( 20, self.mgr.getJobCount() )
         
+        newJobs = self.mgr.getJobs({}, 20)
         
+        self.assertEqual( 0, self.mgr.getJobCount() )
         
                                         
 if __name__ == '__main__':

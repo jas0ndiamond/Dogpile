@@ -293,7 +293,7 @@ class KnightsTourTask(DogPileTask):
     def submitNewJob(self, newState):
         
         # TODO type check ChessBoard object
-        logger.info("Adding new job:\n%s\n" % newState.dump()
+        logger.info("Adding new job:\n%s\n" % newState.dump() )
 
         self.clusterJobDB.addToIntake(newState)
         

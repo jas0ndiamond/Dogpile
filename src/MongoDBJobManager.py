@@ -14,6 +14,7 @@ from JobManager import JobManager
 logFile = "run.log"
 
 MAX_INTAKE_SIZE = 2 * 1000 * 1000
+HASHCODE_FIELD = "hashCode"
 
 # On-disk management of job state data
 #TODO: refactor naming of functions like 'addJob' to 'addState' and similar
@@ -42,8 +43,8 @@ class MongoDBJobManager(JobManager):
         self.dispy_work_collection.drop()
         
         # create our job field index. without this, inserts with uniqueness contraints are too slow
-        self.dispy_work_collection.drop_index( "hashCode" )
-        self.dispy_work_collection.create_index( "hashCode" )
+        self.dispy_work_collection.drop_index( HASHCODE_FIELD )
+        self.dispy_work_collection.create_index( HASHCODE_FIELD )
         
         self.logger.info("Building MongoDBJobManager for collection %s at %s:%d" % (collection_name, db_host, db_port) )
         
@@ -175,7 +176,7 @@ class MongoDBJobManager(JobManager):
         # call to update_one to check if the hashcode is in the collection, and add it if it is not
         # if a match is found, the matched document is overwritten and likely gets a new objectid
         # not the best...would be better if the overwrite was not executed for duplicates
-        result = self.dispy_work_collection.update_one( { "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True )
+        result = self.dispy_work_collection.update_one( { HASHCODE_FIELD: jobToInsert[HASHCODE_FIELD] }, { '$set': jobToInsert }, upsert=True )
          
          
         if self.logger.isEnabledFor(logging.DEBUG):
@@ -226,7 +227,7 @@ class MongoDBJobManager(JobManager):
             #TODO: see if possible with UpdateMany
             #TODO: upsert possible in call to bulk_write rather than in each call to UpdateOne?
             
-            requests.append( UpdateOne( { "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True ) )
+            requests.append( UpdateOne( { HASHCODE_FIELD: jobToInsert[HASHCODE_FIELD] }, { '$set': jobToInsert }, upsert=True ) )
 
         self.dispy_work_collection.bulk_write(requests)
         
@@ -236,6 +237,8 @@ class MongoDBJobManager(JobManager):
         
     
     def getJobs(self, condition={}, count=10000):
+                         
+        # TODO: rename to retrieveJobs
                                 
         # need to atomically:
         # query a collection with the provided condition

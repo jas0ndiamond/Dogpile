@@ -123,7 +123,6 @@ def jobStatusCallback(job):
                 
                 #submit job for new board
                 #don't have to worry about rexpanding a board we've already seen. KnightsTour.expandBoard checks for previous turns
-                #knightsTourTask.submitClusterJob( KnightsTour( expandedBoard.getBoardStateStr(), expandedBoard.getXDim(), expandedBoard.getYDim(), expandedBoard.getTurnCount() ) )
                 knightsTourTask.submitNewJob( expandedBoard )
                 
                 #trace
@@ -142,12 +141,6 @@ def jobStatusCallback(job):
     #                    #ignore - we don't need to expand the board again
     #                    if(logger.isEnabledFor(logging.DEBUG)):
     #                        logger.debug("Skipping expansion of old board:\n%s\n" % expandedBoard.dump())
-
-        
-        #trace
-        #if logger.isEnabledFor(logging.DEBUG):
-        #    elapsed = timeit.default_timer() - start_time
-        #    logger.debug("Submission of expanded boards completed in time: %f ms" % (elapsed * 1000) )
         
         #TODO: signal callback work is finished - different from counting 
 
@@ -206,6 +199,7 @@ def signal_handler(sig, frame):
     logger.info("Exiting")
     sys.exit(1)
     
+#TODO: remove. should be offloaded to database anyway
 def checkIfNewBoard(board):
     retval = False
     
@@ -283,7 +277,6 @@ class KnightsTourTask(DogPileTask):
         logger.debug("Starting board:\n%s" % startBoard.dump())
         
         self.submitNewJob( startBoard )
-        #self.submitClusterJob( KnightsTour( startBoard.getBoardStateStr(), startBoard.getXDim(), startBoard.getYDim() ) )       
         
         #start job polling thread 
         self.pollingForNewWork = True
@@ -316,7 +309,7 @@ class KnightsTourTask(DogPileTask):
         #TODO: move bulk to DogpileTask, though subclass will still need to be able to specify a retrieval condition
         
         ########
-        # there are several queues to manage to prevent memory exhaustion on the dispy server node:
+        # there are several queues to manage to prevent local memory exhaustion for large workloads
         # dispy's worker_Q - a queue of incoming responses from nodes
         ## grows when work results cannot be processed faster than their arrival rate
         # dispy's pending jobs queue - a queue of jobs submitted to the dispy cluster waiting on node availibility

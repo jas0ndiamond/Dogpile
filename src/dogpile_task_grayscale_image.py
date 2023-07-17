@@ -91,11 +91,11 @@ def clusterStatusCallback(status, node, job):
         #inherited from job statuses. normal operation. ignore
         pass
     else: 
-        logger.warn("Unexpected node status: %d" % status )
+        logger.warning("Unexpected node status: %d" % status )
 
 class GrayScaleImageTask(DogPileTask):
     def __init__(self, confFile):
-        super().__init__(confFile)
+        super().__init__(confFile, enableRetryQueue=False)
         
         #TODO: read this from config
         self.imageOutputDir = srcDir + "/../output"
@@ -160,11 +160,16 @@ class GrayScaleImageTask(DogPileTask):
         ################################################
         #for each file in sourceImageFiles, create jobs for the job manager
             
+        jobsToSubmit = []
+            
+        # TODO: if submitting cluster jobs with a specified job id is viable, then generate all ids before submitting all jobs
+            
         # TODO: override this so different grayscale image tasks can generate jobs in their own way
         # by row
         # by col
         # by pixel
         # by random pixel group
+        newJobID = 1
         for sourceImageFile in self.sourceImageFiles:
             #need image object that has map of job ids to result rows
             #map of job ids to images
@@ -178,36 +183,56 @@ class GrayScaleImageTask(DogPileTask):
             
             #TODO: rename, won't always be a row. need more generic
             rowNum = 0
+            
             for row in sourceImage.getPixelRows():
             
                 logger.debug ("Row: %s" % row )
+                
+                # TODO: plumbing for deciding the id here
                 
                 #submit job to the dispy cluster
                 #bind job id to result container, unfortunately we can only get
                 #the job id after submitting it to the cluster, and sometimes the 
                 #result arrives in the cluster status callback before the 
                 #result binding below
-                newJob = self.submitClusterJob( Grayscaler( row ) )
+                #0 may not be acceptable as an id
                 
-                if(newJob):
-                    logger.debug("Binding job id %s to row num %d" % (newJob.id, rowNum))
                 
-                    sourceImage.bindRow(newJob.id, rowNum)
+                logger.debug("Binding job id %s to row num %d" % (newJobID, rowNum))
                 
-                    rowNum += 1
-                    
-                    self.jobsSubmitted += 1
-                else:
-                    logger.error("Failed creating job")
+                # result bind has to happen before job submission
+                sourceImage.bindRow(newJobID, rowNum)
                 
-                #TODO: fail out gracefully. signal not ready. do not want partial set of jobs submitted to cluster
+                jobsToSubmit.append( ( newJobID, Grayscaler( row ) ) )
+                
+                rowNum += 1
+                newJobID += 1
+                
             
             self.workloadImages.append(sourceImage)
             
             
         #######################
         # submit jobs from job manager
-          
+        
+        for job in jobsToSubmit:
+            # ( newJobID, Grayscaler( row ) )
+            
+            newJobID = job[0]
+            
+            newJob = self.submitClusterJobWithID( job[1], newJobID  )
+                
+            if(newJob):
+                if( newJob.id != newJobID ):
+                    logger.error("Cluster job submission returned an unexpected job id: %d vs %d" % (newJobID, newJob.id) )
+                    #raise Exception("Cluster job submission returned an unexpected job id. Bailing")
+                else:
+
+                    self.jobsSubmitted += 1
+            else:
+                logger.error("Failed creating job")
+                #TODO: fail out gracefully. signal not ready. do not want partial set of jobs submitted to cluster. check exception flow
+                #raise Exception("Error during job submission. Bailing")
         
           
         logger.info("All jobs submitted: %d" % self.jobsSubmitted)
@@ -238,7 +263,7 @@ class GrayScaleImageTask(DogPileTask):
         elif (unfinishedJobs > 0):
             logger.info("Application workload not finished. Remaining jobs: %d" % unfinishedJobs)
         else:
-            logger.error("Error counting completed jobs. Total: %d, completed: %d" % (self.jobCount, completedJobs) )
+            logger.error("Error counting completed jobs. Total: %d, completed: %d" % (self.jobsSubmitted, completedJobs) )
             
         #results check. opportunity to detect problems and potentially resubmit jobs to correct
         #are there any gaps in any images?

@@ -84,8 +84,10 @@ class DogPileTask:
 
             retval = True
         else:
-            self.logger.warning("Could not find image for job id %d" % job.id)
-            self.addRetryJob(job)
+            self.logger.error("Could not find image for job id %d" % job.id)
+            
+            #TODO: remove
+            #self.addRetryJob(job)
 
         return retval
         
@@ -134,6 +136,20 @@ class DogPileTask:
     #how does the subclass task indicate it's finished submitting jobs and processing results?
     def isFinished(self):
         raise Exception("DogPileTask.isFinished() not implemented in subclass")
+
+    #submit our job to the dispy cluster with a known id
+    def submitClusterJobWithID(self, job, jobId):
+        if(self.cluster == None):
+            raise Exception("Dispy cluster not initialized. Cannot submit job.")
+        
+        if(self.quit):
+            self.logger.warn("Quitting- skipping cluster job submission")
+            return None
+        
+        # generate a job id
+        #def submit_job_id(self, job_id, *args, **kwargs):
+        #^^^ the job is in args
+        return self.cluster.submit_job_id(jobId, job)
     
     #submit our job to the dispy cluster
     def submitClusterJob(self, job):
@@ -144,6 +160,8 @@ class DogPileTask:
         if(self.quit):
             self.logger.warn("Quitting- skipping cluster job submission")
             return None
+        
+        # generate a job id
         
         return self.cluster.submit(job)
     

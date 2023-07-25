@@ -325,7 +325,10 @@ def main(args):
     
     #save results
     logger.info("Writing results")
+    print("Writing results...")
+
     grayscaleImageTask.writeResults()
+
 
     logger.info("Exiting")
 

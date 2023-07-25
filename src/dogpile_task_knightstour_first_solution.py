@@ -240,7 +240,7 @@ class KnightsTourTask(DogPileTask):
         #seeing issues trying to combine this statement with the clusterFactory retrieval abo
         #super().clusterStatusCallback is generic enough for most cases, but subclasses may want otherwise 
         
-        super()._setCluster( clusterFactory.buildCluster( KnightsTour.expandBoard, clusterStatusCallback, jobStatusCallback ) )
+        super()._setCluster( clusterFactory.buildCluster( KnightsTour.expandBoard, job_status_callback=jobStatusCallback ) )
         
         #TODO: reallocate nodes in case we previously had a sloppy shutdown?
         

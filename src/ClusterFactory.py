@@ -4,6 +4,7 @@ import logging
 from dispy.config import MsgTimeout
 
 from Config import Config
+from DefaultClusterStatusCallback import DefaultClusterStatusCallback
 
 class ClusterFactory:
     def __init__(self, config):
@@ -22,7 +23,8 @@ class ClusterFactory:
     def getConfig(self):
         return self.config
 
-    def buildCluster(self, runFunction, cluster_status_callback=None, job_status_callback=None):
+    # build a dispy cluster with the default cluster status callback and a specified job status callback
+    def buildCluster(self, runFunction, cluster_status_callback=DefaultClusterStatusCallback.callback, job_status_callback=None):
 
         #if the local machine is a node, then it has to be specified by ip address. it doesn't seem to work with hostname or fqdn
         cluster_nodes = self.config.get_nodes()

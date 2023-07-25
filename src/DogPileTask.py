@@ -66,6 +66,8 @@ class DogPileTask:
     
     def writeClusterJobResult(self, job):
         
+        #TODO remove pieces with retry queue stuff
+        
         #handle the retry queue add here
         #retry queue will just re-call this later
         

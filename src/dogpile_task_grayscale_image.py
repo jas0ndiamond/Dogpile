@@ -2,7 +2,6 @@ import sys
 import os
 import logging
 import time
-
 import dispy
 
 
@@ -16,6 +15,10 @@ from DogPileTask import DogPileTask
 from TransformableImage import TransformableImage
 from Grayscaler import Grayscaler
 from JobCompletionCounter import JobCompletionCounter
+from DefaultClusterStatusCallback import DefaultClusterStatusCallback
+
+####################################################
+# log and logger configuration
 
 logFile = "run.log"
 
@@ -23,9 +26,20 @@ logFile = "run.log"
 logging.basicConfig(filename=logFile, format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
 logger = logging.getLogger(__name__)
 
+#debug testing the callbacks
+#logging.getLogger("DefaultClusterStatusCallback").setLevel(logging.DEBUG)
+
+#TODO possibly get this from a section in config
 logger.setLevel( logging.DEBUG )
 
-#simple generic implementation. listen for job statuses, add to retry queue if there's no result mapping yet
+#custom log levels
+logging.getLogger("DogPileTask").setLevel(logging.DEBUG)
+
+####################################################
+
+
+#TODO: sure would be nice to move this to its own file
+#simple generic implementation. listen for job statuses
 #jobs do not generate other jobs for this problem
 def jobStatusCallback(job):
     # Created = 5
@@ -39,7 +53,7 @@ def jobStatusCallback(job):
     logger.debug("=============job_status_cb===========")
 
     if job.status == dispy.DispyJob.Finished:
-        logger.debug('job finished for %s: %s' % (job.id, job.result))
+        logger.debug("job finished for %s: %s" % (job.id, job.result))
 
         #a block is finished transforming
 
@@ -51,10 +65,7 @@ def jobStatusCallback(job):
 
         #search all images for image.hasJobId
         if grayscaleImageTask.writeClusterJobResult(job) == False:
-            logger.debug('writing result for job %d failed, adding to retry queue' % job.id )
-        else:
-            pass
-            #the queue add is done within writeClusterJobResult
+            logger.debug("writing result for job %d failed" % job.id )
         
         #signal job itself is finished
         grayscaleImageTask.countJobCompleted()
@@ -77,21 +88,6 @@ def jobStatusCallback(job):
         logger.warn("Unexpected job status: %d" % job.status )
         #if we're not logging warnings above
         pass
-
-#simple generic implementation. basic reporting about nodes going on/offline
-def clusterStatusCallback(status, node, job):
-
-    logger.debug("=============cluster_status_cb===========")
-
-    if status == dispy.DispyNode.Initialized:
-        logger.debug ("node %s with %s CPUs available" % (node.ip_addr, node.avail_cpus))
-    elif status == dispy.DispyNode.Closed:
-        logger.debug ("node %s closing" % node.ip_addr)
-    elif status == dispy.DispyJob.Created or status == dispy.DispyJob.Running or status == dispy.DispyJob.Finished:
-        #inherited from job statuses. normal operation. ignore
-        pass
-    else: 
-        logger.warning("Unexpected node status: %d" % status )
 
 class GrayScaleImageTask(DogPileTask):
     def __init__(self, confFile):
@@ -133,8 +129,9 @@ class GrayScaleImageTask(DogPileTask):
         
         clusterFactory = super().getClusterFactory()
         
-        #supply the dispy lambda and the status callbacks. 
-        super()._setCluster( clusterFactory.buildCluster( Grayscaler.grayscaleImage, clusterStatusCallback, jobStatusCallback ) )
+        #supply the dispy lambda and our job status callback. use default cluster callback.
+        #TODO: can we require Dogpile subclasses to override a specific method?
+        super()._setCluster( clusterFactory.buildCluster( Grayscaler.grayscaleImage, job_status_callback=jobStatusCallback ) )
       
     def countJobCompleted(self):
         self.jobCounter.signalCompletedJob()
@@ -187,8 +184,6 @@ class GrayScaleImageTask(DogPileTask):
             for row in sourceImage.getPixelRows():
             
                 logger.debug ("Row: %s" % row )
-                
-                # TODO: plumbing for deciding the id here
                 
                 #submit job to the dispy cluster
                 #bind job id to result container, unfortunately we can only get

@@ -2,12 +2,9 @@ import logging
 import queue
 from JobManager import JobManager
 
-logFile = "run.log"
-
 class QueueJobManager(JobManager):
     
     def __init__(self):
-        logging.basicConfig(filename=logFile, format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel( logging.DEBUG )
         

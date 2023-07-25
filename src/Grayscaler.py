@@ -5,8 +5,10 @@ from PIL import Image
 class Grayscaler(object):
     def __init__(self, sourceImage):
 
+        #TODO: remove
         #from Grayscaler import Grayscaler
 
+        #TODO: log filename? adding it here doesn't seem to write the file on the node
         logging.basicConfig(format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
 

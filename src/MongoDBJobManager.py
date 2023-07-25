@@ -11,8 +11,6 @@ from bson import ObjectId
 
 from JobManager import JobManager
 
-logFile = "run.log"
-
 MAX_INTAKE_SIZE = 2 * 1000 * 1000
 HASHCODE_FIELD = "hashCode"
 
@@ -22,7 +20,6 @@ class MongoDBJobManager(JobManager):
     
     def __init__(self, db_host, db_port, db_user, db_pass, db_name, collection_name, job_serializer):
         
-        logging.basicConfig(filename=logFile, format='%(asctime)s [%(levelname)s] -- [%(name)s]-[%(funcName)s]: %(message)s')
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel( logging.DEBUG )
         

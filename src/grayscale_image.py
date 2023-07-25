@@ -1,3 +1,7 @@
+#######
+#PoC of grayscaling an image with a dispy cluster
+#######
+
 import sys
 import os
 import logging
@@ -14,6 +18,7 @@ from Grayscaler import Grayscaler
 from TransformableImage import TransformableImage
 from ClusterFactory import ClusterFactory
 from ResultRetryQueue import ResultRetryQueue
+#TODO: ^^^ remove retry queue
 
 #timeout after job submission and status report
 ####################

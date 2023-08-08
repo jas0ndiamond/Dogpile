@@ -455,6 +455,61 @@ class TestMongoDBJobManager(unittest.TestCase):
         
         self.assertEqual( 0, self.mgr.getJobCount() )
         
+    def test_has_jobs(self):
+        # basic tests around determining if a collection is empty
+        
+        # add some test job objects
+        self.mgr.addJob( ChessBoard(2,2) )
+        self.mgr.addJob( ChessBoard(3,3) )
+        self.mgr.addJob( ChessBoard(4,4) )
+        
+        self.mgr.addJob( ChessBoard(5,5) )
+        self.mgr.addJob( ChessBoard(6,6) )
+        self.mgr.addJob( ChessBoard(7,7) )
+        self.mgr.addJob( ChessBoard(8,8) )
+        
+        self.assertEqual( 7, self.mgr.getJobCount() )
+        
+        self.assertTrue( self.mgr.hasJobs() )
+        
+        self.mgr.clearJobs()
+        
+        self.assertEqual( 0, self.mgr.getJobCount() )
+        
+        self.assertFalse( self.mgr.hasJobs() )
+                                        
+    def test_has_jobs2(self):
+        
+        #test that the hasJobs determination doesn't modify the database
+        
+        # add some test job objects
+        self.mgr.addJob( ChessBoard(2,2) )
+        self.mgr.addJob( ChessBoard(3,3) )
+        self.mgr.addJob( ChessBoard(4,4) )
+        
+        self.mgr.addJob( ChessBoard(5,5) )
+        self.mgr.addJob( ChessBoard(6,6) )
+        self.mgr.addJob( ChessBoard(7,7) )
+        self.mgr.addJob( ChessBoard(8,8) )
+        
+        self.assertEqual( 7, self.mgr.getJobCount() )
+        
+        self.assertTrue( self.mgr.hasJobs() )
+        
+        self.assertEqual( 7, self.mgr.getJobCount() )
+        
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        self.assertTrue( self.mgr.hasJobs() )
+        
+        self.assertEqual( 7, self.mgr.getJobCount() )
                                         
 if __name__ == '__main__':
     

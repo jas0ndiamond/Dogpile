@@ -482,7 +482,9 @@ class TestMongoDBJobManager(unittest.TestCase):
         
         #test that the hasJobs determination doesn't modify the database
         
-        # add some test job objects
+        expectedSize = 7
+        
+        # add 7 test job objects
         self.mgr.addJob( ChessBoard(2,2) )
         self.mgr.addJob( ChessBoard(3,3) )
         self.mgr.addJob( ChessBoard(4,4) )
@@ -492,11 +494,11 @@ class TestMongoDBJobManager(unittest.TestCase):
         self.mgr.addJob( ChessBoard(7,7) )
         self.mgr.addJob( ChessBoard(8,8) )
         
-        self.assertEqual( 7, self.mgr.getJobCount() )
+        self.assertEqual( expectedSize, self.mgr.getJobCount() )
         
         self.assertTrue( self.mgr.hasJobs() )
         
-        self.assertEqual( 7, self.mgr.getJobCount() )
+        self.assertEqual( expectedSize, self.mgr.getJobCount() )
         
         self.assertTrue( self.mgr.hasJobs() )
         self.assertTrue( self.mgr.hasJobs() )
@@ -509,7 +511,7 @@ class TestMongoDBJobManager(unittest.TestCase):
         self.assertTrue( self.mgr.hasJobs() )
         self.assertTrue( self.mgr.hasJobs() )
         
-        self.assertEqual( 7, self.mgr.getJobCount() )
+        self.assertEqual( expectedSize, self.mgr.getJobCount() )
                                         
 if __name__ == '__main__':
     

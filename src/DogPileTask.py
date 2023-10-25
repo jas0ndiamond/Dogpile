@@ -1,12 +1,8 @@
-import os
 import logging
 import time
 
 import dispy
 import dispy.httpd
-
-#src/app => src
-srcDir = os.path.dirname( os.path.realpath(__file__) )
 
 from Config import Config
 from ClusterFactory import ClusterFactory
@@ -19,6 +15,8 @@ from ResultRetryQueue import ResultRetryQueue
 ####################
 dispy.config.MsgTimeout = 1200
 dispy.MsgTimeout = 1200
+
+CLUSTER_CLOSE_TIMEOUT = 10 #seconds
 
 class DogPileTask:
     
@@ -101,10 +99,10 @@ class DogPileTask:
     def removeResultMapping(self, id):
         raise Exception("DogpileTask.removeResultMapping() not implemented in subclass")
         
-    def initializeCluster(self):
+    def initializeCluster(self, clusterJobStatusCallback):
         #implemented like this in subclass vvvv
-        #cluster = factory.buildCluster(Grayscaler.grayscaleImage, super().clusterStatusCallback)
-        raise Exception("DogPileTask.buildCluster() not implemented in subclass")
+        #cluster = factory.initializeCluster(Grayscaler.grayscaleImage, super().clusterStatusCallback)
+        raise Exception("DogPileTask.initializeCluster() not implemented in subclass")
 
     def start(self):
         raise Exception("DogPileTask.start() not implemented in subclass")
@@ -116,8 +114,7 @@ class DogPileTask:
         self.quit = True
         
         #signal nodes to close with cluster.close_node?
-        
-        
+                
         self.logger.info("Stopping result retry queue")
         #signal the retry queue to terminate
         if(self.retryQueue):
@@ -131,13 +128,16 @@ class DogPileTask:
         self.logger.info("Stopping dispy cluster")
         #shut down the dispy cluster
         if(self.cluster):
-            self.cluster.close(10, terminate=True)
+            self.cluster.close(CLUSTER_CLOSE_TIMEOUT, terminate=True)
 
         self.logger.info("DogPileTask stop completed")
     
     #how does the subclass task indicate it's finished submitting jobs and processing results?
     def isFinished(self):
         raise Exception("DogPileTask.isFinished() not implemented in subclass")
+
+    #TODO: function to accept hash of ids => jobs to submit
+    #returns array or mapping for result resolution
 
     #submit our job to the dispy cluster with a known id
     def submitClusterJobWithID(self, job, jobId):
@@ -163,8 +163,7 @@ class DogPileTask:
             self.logger.warn("Quitting- skipping cluster job submission")
             return None
         
-        # generate a job id
-        
+        # return a generated job id
         return self.cluster.submit(job)
     
     #called by subclass once a cluster is built with node function and status callback
@@ -177,11 +176,16 @@ class DogPileTask:
     #def defaultWriteNodeResultCallback(job):
     #    raise Exception("writeNodeResultCallback not set by subclass")
     
+    #TODO: comments explaining what actually gets returned
     def getPendingJobCount(self):
         return self.cluster.status().jobs_pending
-        
+    
+    #TODO: comments explaining what actually gets returned        
     def getDispyWorkerQSize(self):
         return self.cluster._cluster.worker_Q.qsize()
+        
+    def isDispyWorkerQEmpty(self):
+        return self.cluster._cluster.worker_Q.empty()
     
     def waitForWorkloadCompletion(self, interval=5):
         self.quit = False
@@ -190,7 +194,6 @@ class DogPileTask:
         #namely after all jobs are submitted and finished but not all results are handled.
         #does not wait for callbacks to finish executing
         
-        #while( self.quit != True and self.cluster.wait(interval) != True ):
         while( self.quit != True and self.isFinished() != True ):
             self.cluster.print_status()
             time.sleep(5)           

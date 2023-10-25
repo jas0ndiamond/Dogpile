@@ -2,10 +2,12 @@ import logging
 import queue
 import time
 import timeit
+import json
 
 from threading import Thread, Lock
 
 from pprint import pprint, pformat
+
 from pymongo import MongoClient, UpdateOne
 from bson import ObjectId
 
@@ -21,12 +23,11 @@ class MongoDBJobManager(JobManager):
     def __init__(self, db_host, db_port, db_user, db_pass, db_name, collection_name, job_serializer):
         
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel( logging.DEBUG )
         
         #TODO: look into having the job insertion and job retrieval set their own write concerns. 
         # possible we care less about job insertion results for the sake of performance.
         # possible we care more about job deletion because we don't want to doubly execute work
-        self.client = MongoClient(host=db_host, port=db_port, username=db_user, password=db_pass, authSource='admin', authMechanism='SCRAM-SHA-1', w=0)
+        self.client = MongoClient(host=db_host, port=db_port, username=db_user, password=db_pass, authSource='admin', authMechanism='SCRAM-SHA-1', w=1)
         #, w=0
         
         #TODO default value for collection_name. cannot be empty string
@@ -34,14 +35,14 @@ class MongoDBJobManager(JobManager):
         #expect db_user to be bound to db_name
         #require at least one named collection for the database
         self.database = self.client[db_name]
-        self.dispy_work_collection = self.database[collection_name]
+        self.dogpile_work_collection = self.database[collection_name]
         
         # clear the collection in case a sloppy shutdown did not
-        self.dispy_work_collection.drop()
+        self.dogpile_work_collection.drop()
         
         # create our job field index. without this, inserts with uniqueness contraints are too slow
-        self.dispy_work_collection.drop_index( HASHCODE_FIELD )
-        self.dispy_work_collection.create_index( HASHCODE_FIELD )
+        self.dogpile_work_collection.drop_index( HASHCODE_FIELD )
+        self.dogpile_work_collection.create_index( HASHCODE_FIELD )
         
         self.logger.info("Building MongoDBJobManager for collection %s at %s:%d" % (collection_name, db_host, db_port) )
         
@@ -88,28 +89,27 @@ class MongoDBJobManager(JobManager):
         
     def getIntakeQueueSize(self):
         return self.intake.qsize()
+    
+    def isIntakeQueueEmpty(self):
+        return self.intake.empty()
         
     def addToIntake(self, job):
-        
         # possible since this is a queue we don't need to lock
-        
         self.intake.put(job)
-        
+     
+    # TODO: accept an array of jobs. add tests
+    #def addJobsToIntake(self, jobs):
+    #    pass
         
     #process intake queue in background, so each external job add doesn't incur a db write and block the dispy job callback
     def processIntake(self):
-        
-        #need to ensure if queue is filled up faster than it can be cleared, then this loop may never exit
-        
-        #currently experimenting with async writes => not super helpful
-        
+               
         jobSubmissionBlock = []
         
         previousIntakeQueueSize = 0
         
         #also need to allow first jobs to be processed or they might never make it to 
         #the database, and won't ever be available for retrieval
-        #if( intakeQueueSize > minClearSize or intakeQueueSize < 100):
         while(self.runningIntake):         
             jobSubmissionBlock.clear()
                 
@@ -117,12 +117,11 @@ class MongoDBJobManager(JobManager):
                 
             #if we don't have a lower bound, nodes will starve as submitted jobs never make it to the database for retrieval
             #TODO: manage this parameter
-            if(queueSize == previousIntakeQueueSize or queueSize > self.intakeSubmissionThreshold):
+            if( self.isIntakeQueueEmpty() == False and (queueSize == previousIntakeQueueSize or queueSize > self.intakeSubmissionThreshold)):
                 
                 if( self.logger.isEnabledFor(logging.DEBUG)):
                     self.logger.debug("Writing Intake Queue contents to database")
 
-                
                 # likely the intake queue resizing is what causes random stalls
                 
                 # this loop must terminate reasonably- if we're inundated with jobs it's possible they just get infinitely added 
@@ -173,9 +172,8 @@ class MongoDBJobManager(JobManager):
         # call to update_one to check if the hashcode is in the collection, and add it if it is not
         # if a match is found, the matched document is overwritten and likely gets a new objectid
         # not the best...would be better if the overwrite was not executed for duplicates
-        result = self.dispy_work_collection.update_one( { HASHCODE_FIELD: jobToInsert[HASHCODE_FIELD] }, { '$set': jobToInsert }, upsert=True )
-         
-         
+        result = self.dogpile_work_collection.update_one( { HASHCODE_FIELD: jobToInsert[HASHCODE_FIELD] }, { '$set': jobToInsert }, upsert=True )
+        
         if self.logger.isEnabledFor(logging.DEBUG):
             elapsed = timeit.default_timer() - start_time
             self.logger.debug("addJob completed in time: %f ms" % (elapsed * 1000) )
@@ -195,21 +193,21 @@ class MongoDBJobManager(JobManager):
     # add a list of jobs with unique hashcodes to the database. 
     def addJobs(self, jobs):
         
-        
-        # how to enforce uniqueness
+        # enforce uniqueness
         # a double-insert of the same new object should only add one document to the database
         # this function and addJob may be called a lot if a job completion begets other new jobs
         # without necessarily knowing job internals
 
         # hashcode as match condition - need to standardize
-
+        # for reference
         #db.col.update( {match_condition}, {new_job}, {upsert:true} )
         
         if self.logger.isEnabledFor(logging.DEBUG):
+            #self.logger.debug("Adding %d jobs to database" % len(jobs))
             start_time = timeit.default_timer()
 
         # single job submission for reference:
-        # result = self.dispy_work_collection.update_one( "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True ) )
+        # result = self.dogpile_work_collection.update_one( "hashCode": jobToInsert["hashCode"] }, { '$set': jobToInsert }, upsert=True ) )
 
         requests = []
         
@@ -224,14 +222,23 @@ class MongoDBJobManager(JobManager):
             #TODO: see if possible with UpdateMany
             #TODO: upsert possible in call to bulk_write rather than in each call to UpdateOne?
             
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("Writing board to DB with hashCode: %s => %s" % ( jobToInsert[HASHCODE_FIELD], jobToInsert["boardState"] ) ) 
+            
             requests.append( UpdateOne( { HASHCODE_FIELD: jobToInsert[HASHCODE_FIELD] }, { '$set': jobToInsert }, upsert=True ) )
 
-        self.dispy_work_collection.bulk_write(requests)
+        
+        #do not inspect the output, requires write concern 0
+        #self.dogpile_work_collection.bulk_write(requests)
+        
+        #inspect the output, requires write concern 1
+        result = self.dogpile_work_collection.bulk_write(requests)
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("Database bulk_write result: %s" % pformat(result.bulk_api_result) )
         
         if self.logger.isEnabledFor(logging.DEBUG):
             elapsed = timeit.default_timer() - start_time
             self.logger.debug("addJobs of %d completed in time: %f ms" % ( len(jobs), (elapsed * 1000) ) )
-        
     
     def getJobs(self, condition={}, count=10000):
                          
@@ -250,7 +257,11 @@ class MongoDBJobManager(JobManager):
             self.logger.warn("getJobs was called, but the database client was shut down. Returning.")
             return newJobs
         
-        # can't call this function in rapid succession and have duplicate work released to nodes
+        if(self.hasJobs() == False):
+            self.logger.warn("getJobs was called, but the database collection was empty. Returning.")
+            return newJobs
+        
+        # protect against calling this function in rapid succession and have duplicate work released to nodes
         with self.jobRetrievalLock:
             
             self.logger.info("Retrieving new jobs...")
@@ -260,10 +271,8 @@ class MongoDBJobManager(JobManager):
             
             newJobHashCodes = []
             
-            #TODO sort?
-            
             # get the next batch of jobs as documents
-            for newJobDoc in self.dispy_work_collection.find(condition).limit(count):
+            for newJobDoc in self.dogpile_work_collection.find(condition).limit(count):
              
                 #trace
                 #if self.logger.isEnabledFor(logging.DEBUG):
@@ -278,7 +287,8 @@ class MongoDBJobManager(JobManager):
                 # since inserting with upsert in addJobs may overwrite or otherwise change the doc's _id, discard by hashCode instead
                 ####################
                 
-                self.logger.info("New job for hashCodes: %s" % newJobDoc[HASHCODE_FIELD] )
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("New job for hashCodes: %s" % newJobDoc[HASHCODE_FIELD] )
                 
                 #append object id to our todiscard list
                 #could use hashcode but that's most suited to comparing board states
@@ -290,7 +300,7 @@ class MongoDBJobManager(JobManager):
             if( newJobs ):
 
                 #delete jobids for the work we're committing to
-                deletion_result = self.dispy_work_collection.delete_many(
+                deletion_result = self.dogpile_work_collection.delete_many(
                     {
                         HASHCODE_FIELD: { "$in": newJobHashCodes }
                     }
@@ -308,26 +318,39 @@ class MongoDBJobManager(JobManager):
             else:
                 self.logger.info("getJobs did not find new jobs from database")
         
-        if self.logger.isEnabledFor(logging.DEBUG):
-            elapsed = timeit.default_timer() - start_time
-            self.logger.debug("getJobs job retrieval completed in time: %f ms" % (elapsed * 1000) )
+            #benchmark
+            if self.logger.isEnabledFor(logging.DEBUG):
+                elapsed = timeit.default_timer() - start_time
+                self.logger.debug("getJobs job retrieval completed in time: %f ms" % (elapsed * 1000) )
         
         return newJobs
         
     def trimJobs(self, condition):
         # trim the jobs db with a context-aware condition
-        #TODO: defer conditional to caller? would have to know mongodb conditionals
-        self.dispy_work_collection.delete_many(condition)
+        self.dogpile_work_collection.delete_many(condition)
         
     def getJobCount(self):
         #this can take a long time for collection sizes in the millions
-        return self.dispy_work_collection.count_documents({})
+        return self.dogpile_work_collection.count_documents({})
+        
+    def hasJobs(self):
+        #are there jobs in the db?
+        #don't want to have to count whole collections
+        
+        #debug
+        #print ("Has jobs returning: \"%s\"" % self.dogpile_work_collection.find_one())
+        
+        #find_one is not as performant as find().limit(1), 
+        #unfortunately pymongo doesn't have has_next. 
+        #cursor throws an exception when it doesn't point to anything
+        
+        return ( self.dogpile_work_collection.find_one() != None )
         
     def clearJobs(self):
-        self.dispy_work_collection.delete_many({})
+        self.dogpile_work_collection.delete_many({})
         
     def dropCollection(self):
-        self.dispy_work_collection.drop()
+        self.dogpile_work_collection.drop()
         
     def close(self):
         self.closed = True

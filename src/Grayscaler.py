@@ -3,6 +3,9 @@ import logging
 from PIL import Image
 
 class Grayscaler(object):
+    
+    #TODO: rename to pixelGroup
+    #TODO: consider array of pixel groups
     def __init__(self, sourceImage):
 
         #TODO: remove

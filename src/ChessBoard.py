@@ -6,15 +6,14 @@ from ClusterJobResult import ClusterJobResult
 
 
 class ChessBoard(ClusterJobResult):
-        
+
     STANDARD_BOARD_DIM = 8
         
     INVALID_POS_X = -1
     INVALID_POS_Y = -1
         
-    #TODO: "0" as blank was a bad choice. refactor
     DEAD = "X"
-    BLANK = "0"
+    BLANK = "O"  # letter 'O' is for Open
     
     BOARD_SPACE_DELIM = ","
     
@@ -33,7 +32,7 @@ class ChessBoard(ClusterJobResult):
         
         self.boardState = [[ChessBoard.BLANK for x in range(xdim)] for y in range(ydim)]
         
-        #defaults
+        # defaults
         self.parentState = None
         self.turnCount = turnCount
         
@@ -113,8 +112,6 @@ class ChessBoard(ClusterJobResult):
             for x in range(self.xdim):
                 retval.append(str(board[x][y]))
                 
-        
-                
         return ChessBoard.BOARD_SPACE_DELIM.join(retval)
         
     def getChildBoard(self):
@@ -134,9 +131,7 @@ class ChessBoard(ClusterJobResult):
     # possibly move these to ClusterJobResult and require override
     # easy way to determine board uniqueness
     def getHashCode(self):
-    
         #call hexdigest otherwise the result is a undefined memory address for string comparisons
-    
         return hashlib.md5(self.toJson().encode()).hexdigest()
         
     def fromJson(self, jsonStr):
@@ -187,8 +182,7 @@ class ChessBoard(ClusterJobResult):
             
         return ("----------------------------------%s\n----------------------------------\n" % state )
         
-    
-    
+    ##################################################
     @classmethod
     def serializeFromDict(cls, other):
     

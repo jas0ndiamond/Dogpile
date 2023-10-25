@@ -31,7 +31,7 @@ class TestChessBoard(unittest.TestCase):
         
         #print("\nBoardState:\n%s" % boardState)
         
-        self.assertEqual("0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0", boardState)
+        self.assertEqual("O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O", boardState)
 
         
         #self.assertTrue( boardState.startswith( ChessBoard.BLANK * (targetx) + ChessBoard.KNIGHT) )
@@ -122,7 +122,7 @@ class TestChessBoard(unittest.TestCase):
         
         board = ChessBoard(xdim, ydim, 6)
         
-        board.setBoardStateFromString("1,0,0,0,2,0,0,4,0,0,0,0,5,0,0,0,0,K,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0")
+        board.setBoardStateFromString("1,O,O,O,2,O,O,4,O,O,O,O,5,O,O,O,O,K,O,O,O,O,O,3,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O")
                 
         self.assertEqual(board.getTurnCount(), 6)
         
@@ -137,16 +137,16 @@ class TestChessBoard(unittest.TestCase):
         
         # not really a test, more like a sanity check
         
-        board1 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0"
-        board2 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0"
-        board3 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0"
-        board4 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0"
-        board5 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-        board6 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-        board7 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-        board8 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        board1 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O"
+        board2 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O"
+        board3 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O"
+        board4 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O"
+        board5 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
+        board6 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
+        board7 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
+        board8 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
         
-        boardNew = "0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        boardNew = "O,O,4,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
 
         
         knownBoards = {}
@@ -171,14 +171,14 @@ class TestChessBoard(unittest.TestCase):
         self.assertFalse( boardNew in knownBoards )
         
     def test_hash_code(self):
-        boardState1 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0"
-        boardState2 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0"
-        boardState3 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0"
-        boardState4 = "0,1,3,5,2,4,K,J,Q,0,0,0,0,0,0,0"
-        boardState5 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-        boardState6 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-        boardState7 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
-        boardState8 = "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,K,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"
+        boardState1 = "O,1,3,5,2,4,K,J,Q,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O"
+        boardState2 = "O,1,3,5,2,4,K,J,Q,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O"
+        boardState3 = "O,1,3,5,2,4,K,J,Q,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O"
+        boardState4 = "O,1,3,5,2,4,K,J,Q,O,O,O,O,O,O,O"
+        boardState5 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
+        boardState6 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
+        boardState7 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O,O,O,10,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
+        boardState8 = "O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,K,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,1O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O"
         
         xdim = ydim = ChessBoard.STANDARD_BOARD_DIM
         xdim2 = ydim2 = 4
